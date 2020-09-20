@@ -4,13 +4,23 @@ from keras.models import *
 from typing import List, Union, Tuple, Optional, Dict
 from ..data.manager import dataManager
 from ..graph.flow import activationFlowManager
-import umap, xarray as xa
+import xarray as xa
 import numpy as np, time, traceback
+from .umap import UMAP
+from ..model.labels import labelsManager
+
 
 class ReductionManager(object):
 
+    UNDEF = -1
+    INIT = 0
+    NEW_DATA = 1
+    PROCESSED = 2
+
     def __init__( self, **kwargs ):
         self._mapper = {}
+        self.conf = kwargs
+        self._state = self.UNDEF
 
     def reduce(self, inputs: np.ndarray, reduction_method: str, ndim: int, nepochs: int = 1  ) -> np.ndarray:
         if reduction_method.lower() == "autoencoder": return self.autoencoder_reduction( inputs, ndim, nepochs )
@@ -66,7 +76,8 @@ class ReductionManager(object):
 
     def umap_embedding( self,  point_data: xa.DataArray, **kwargs ) -> Optional[xa.DataArray]:
         ndim = int( kwargs.get('ndim', dataManager.config["umap"]["dims"] ) )
-        mapper: umap.UMAP = self.getUMapper( point_data.attrs['dsid'], ndim )
+        labelsManager.initLabelsData( point_data )
+        mapper: UMAP = self.getUMapper( point_data.attrs['dsid'], ndim )
         if mapper.embedding is not None:
             return self.wrap_embedding( point_data.coords[ point_data.dims[0] ], mapper.embedding )
         else:
@@ -87,7 +98,6 @@ class ReductionManager(object):
                 if 'alpha' not in kwargs.keys():   kwargs['alpha'] = dataManager.config["umap"].get( "alpha", 0.1 )
                 self._state = self.PROCESSED
             t0 = time.time()
-            mapper = self.getUMapper(point_data.attrs['dsid'], ndim)
             mapper.flow = flow
             t1 = time.time()
             labels_data: np.ndarray = labelsManager.labels_data().values
@@ -120,7 +130,7 @@ class ReductionManager(object):
         ax_model = np.arange( embedding.shape[1] )
         return xa.DataArray( embedding, dims=['samples','model'], coords=dict( samples=ax_samples, model=ax_model ) )
 
-    def getUMapper(self, dsid: str, ndim: int ) -> umap.UMAP:
+    def getUMapper(self, dsid: str, ndim: int ) -> UMAP:
         mid = f"{ndim}-{dsid}"
         mapper = self._mapper.get( mid )
         if ( mapper is None ):
@@ -128,7 +138,7 @@ class ReductionManager(object):
             init = dataManager.config["umap"].get("init","random")
             target_weight = dataManager.config["umap"].get("target_weight", 0.5 )
             parms = dict( n_neighbors=n_neighbors, init=init, target_weight=target_weight ); parms.update( **self.conf, n_components=ndim )
-            mapper = umap.UMAP(**parms)
+            mapper = UMAP(**parms)
             self._mapper[mid] = mapper
         self._current_mapper = mapper
         return mapper

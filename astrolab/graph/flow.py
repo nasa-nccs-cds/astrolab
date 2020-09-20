@@ -5,7 +5,7 @@ import xarray as xa
 import numba
 from typing import List, Union, Tuple, Optional, Dict
 from astrolab.data.manager import dataManager
-from astrolab.workflow.tasks import taskRunner, Task
+#from astrolab.workflow.tasks import taskRunner, Task
 import os, time, threading, traceback
 
 @numba.njit(fastmath=True,
@@ -94,12 +94,13 @@ class ActivationFlow(object):
         self.C: np.ndarray = None
         self.reset = True
 
-        background = kwargs.get( 'background', False )
-        if background:
-            self.init_task = Task( f"Compute NN graph", self.setNodeData, nodes_data, **kwargs )
-            taskRunner.start( self.init_task )
-        else:
-            self.setNodeData( nodes_data, **kwargs )
+        # background = kwargs.get( 'background', False )
+        # if background:
+        #     self.init_task = Task( f"Compute NN graph", self.setNodeData, nodes_data, **kwargs )
+        #     taskRunner.start( self.init_task )
+        # else:
+
+        self.setNodeData( nodes_data, **kwargs )
 
     def clear(self):
         self.reset = True
@@ -123,7 +124,7 @@ class ActivationFlow(object):
 
     @classmethod
     def getNNGraph(cls, nodes: xa.DataArray, **kwargs ):
-        n_neighbors = dataManager.config.value("umap/nneighbors", type=int)
+        n_neighbors = dataManager.config["umap"].get("nneighbors", 8 )
         n_trees = kwargs.get('ntree', 5 + int(round((nodes.shape[0]) ** 0.5 / 20.0)))
         n_iters = kwargs.get('niter', max(5, 2 * int(round(np.log2(nodes.shape[0])))))
         nnd = NNDescent(nodes.values, n_trees=n_trees, n_iters=n_iters, n_neighbors=n_neighbors, max_candidates=60, verbose=True)
@@ -131,7 +132,7 @@ class ActivationFlow(object):
 
     def spread( self, sample_labels: xa.DataArray, nIter: int = 1, **kwargs ) -> Optional[xa.Dataset]:
         if self.D is None:
-            Task.showMessage( "Awaiting task completion", "", "The NN graph computation has not yet finished", QMessageBox.Critical )
+#            Task.showMessage( "Awaiting task completion", "", "The NN graph computation has not yet finished", QMessageBox.Critical )
             return None
         sample_data = sample_labels.values
         sample_mask = sample_data == 0
@@ -141,7 +142,7 @@ class ActivationFlow(object):
             self.C = np.where( sample_mask, self.C, sample_data )
         label_count = np.count_nonzero(self.C)
         if label_count == 0:
-            Task.showMessage("Workflow violation", "", "Must label some points before this algorithm can be applied", QMessageBox.Critical )
+#            Task.showMessage("Workflow violation", "", "Must label some points before this algorithm can be applied", QMessageBox.Critical )
             return None
         if (self.P is None) or self.reset:   self.P = np.full( self.C.shape, float('inf'), dtype=np.float32 )
         self.P = np.where( sample_mask, self.P, 0.0 )
