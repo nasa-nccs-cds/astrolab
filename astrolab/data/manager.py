@@ -38,7 +38,7 @@ class DataManager(SettingsManager):
         dataset.attrs['type'] = 'spectra'
         return dataset
 
-    def loadCurrentProject(self):
+    def loadCurrentProject(self) -> xa.Dataset:
         reduce_method = dataManager.config.get("reduce").get("method")
         reduce_dims = dataManager.config.get("reduce").get("dims")
         reduce_subsample = dataManager.config.get("reduce").get("subsample")

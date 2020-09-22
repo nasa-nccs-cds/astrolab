@@ -1,4 +1,5 @@
-import ipysheet
+from ipysheet import sheet, column, cell
+from typing import List, Union, Tuple, Optional, Dict, Callable
 import numpy as np
 from astrolab.data.manager import dataManager
 
@@ -10,18 +11,23 @@ config = dict(
 
 dataManager.initProject( 'swiftclass', 'read_data_test', config )
 dataManager.save()
+_cols = {}
+_headers = {}
+
+def style_observer( event: Dict ):
+    print( f"Style event: {event}")
 
 project_data = dataManager.loadCurrentProject()
+cols = [ "target_names", "obsids" ]
 
-target_names: np.ndarray = project_data.target_names.values
-obsids: np.ndarray  = project_data.obsids.values
-nrows = target_names.shape[0]
+sheet0 = None
+for iC, cname in enumerate(cols):
+    col_data = project_data[cname].values.tolist()
+    if sheet0 is None:
+        sheet0 = sheet( "sheet0", len(col_data)+1, len(cols) )
+    __col = column( iC, col_data, 1, read_only=True )
+    __col.observe( style_observer, 'style', 'All' )
+    _cols[ cname ] = __col
+    _headers[ cname ] = cell( 0, iC, cname, color="yellow", background_color="black", font_style="bold", read_only=True )
 
-sheet = ipysheet.sheet(rows=nrows, columns=3)
-
-for idx in range( nrows ):
-    cell1 = ipysheet.cell( idx, 0, target_names[idx] )
-    cell2 = ipysheet.cell( idx, 1, obsids[idx] )
-    cell3 = ipysheet.cell( idx, 2, idx )
-
-sheet
+sheet0
