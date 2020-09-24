@@ -1050,7 +1050,7 @@ def optimize_layout_euclidean(
             epoch_of_next_sample,
             n,
         )
-        print( f" ITER Embed n={n}, alpha={alpha:.4f}, sample={head_embedding[0]}, dist={head_embedding[0]-head_embedding[1000]} ")
+   #     print( f" ITER Embed n={n}, alpha={alpha:.4f}, sample={head_embedding[0]}, dist={head_embedding[0]-head_embedding[1000]} ")
         alpha = initial_alpha * (1.0 - (float(n) / float(n_epochs)))
 
         if verbose and n % int(n_epochs / 10) == 0:
