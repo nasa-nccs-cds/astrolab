@@ -61,7 +61,7 @@ class UMAPManager(object):
     def clear(self,**kwargs):
         keep_markers = kwargs.get('markers', 'discard') == "keep"
         activationFlowManager.clear()
-        self._gui.clear_selection()
+        self._gui._clear_selection()
         if not keep_markers:
             self._gui.clear_markers()
             labelsManager.clearMarkers()

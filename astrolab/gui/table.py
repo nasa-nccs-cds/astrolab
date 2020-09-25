@@ -11,17 +11,19 @@ import ipywidgets as widgets
 class TableManager(object):
 
     def __init__(self):
-        qgrid.on('All', self.handle_table_event )
+        qgrid.on('All', self._handle_table_event)
         self._wGui: widgets.VBox = None
         self._classes: List[str] = None
         self._dataFrame: pd.DataFrame = None
         self._cols: List[str] = None
         self._select_all: widgets.Checkbox = None
         self._tables: List[qgrid.QgridWidget] = []
-        self.wTablesWidget: widgets.Tab = None
+        self._wTablesWidget: widgets.Tab = None
         self._current_column_index: int = 0
         self._current_table: qgrid.QgridWidget = None
+        self._current_selection: List[int] = []
         self._select_all = False
+        self._selection_listeners: List[Callable[[Dict],None]] = [ self._internal_listener ]
 
     def init(self, **kwargs):
         nclass = kwargs.get('nclass',5)
@@ -34,14 +36,23 @@ class TableManager(object):
         self._dataFrame: pd.DataFrame = pd.DataFrame(catalog, dtype='U')
         self._cols = list(catalog.keys())
 
-    def handle_table_event(self, event, widget):
+    def add_selection_listerner( self, listener: Callable[[Dict],None] ):
+        self._selection_listeners.append( listener )
+
+    def _handle_table_event(self, event, widget):
         self._current_table = widget
         ename = event['name']
         if( ename == 'sort_changed'):
             self._current_column_index = self._cols.index( event['new']['column'] )
-            self.update_finder()
+            self._clear_selection()
         elif (ename == 'selection_changed'):
-            print(f" selection_change: {event}")
+            itab_index = self._tables.index( widget )
+            cname = self._classes[ itab_index ]
+            selection_event = dict( classname=cname, **event )
+            for listener in self._selection_listeners: listener( selection_event )
+
+    def _internal_listener(self, selection_event: Dict ):
+        print(f" selection_change: {selection_event}")
 
     def _createTable( self, tab_index: int ) -> qgrid.QgridWidget:
         assert self._dataFrame is not None, " TableManager has not been initialized "
@@ -57,39 +68,38 @@ class TableManager(object):
 
     def _createGui( self ) -> widgets.VBox:
         wSelectionPanel = self._createSelectionPanel()
-        self.wTablesWidget = self._createTableTabs()
-        return widgets.VBox([wSelectionPanel, self.wTablesWidget])
+        self._wTablesWidget = self._createTableTabs()
+        return widgets.VBox([wSelectionPanel, self._wTablesWidget])
 
     def _createSelectionPanel( self ) -> widgets.HBox:
         unclass = 'unclassified'
         self._wFind = widgets.Text( value='', placeholder='Find items', description='Find:', disabled=False, continuous_update = False )
         wSelectAll = widgets.Checkbox(value=False, description='Select all', disabled=False, indent=False)
-        self._wFind.observe( self.process_find, 'value' )
-        wSelectAll.observe(self.process_select_all, 'value')
+        self._wFind.observe(self._process_find, 'value')
+        wSelectAll.observe(self._process_select_all, 'value')
         wSelectedClass = widgets.Dropdown( options=[unclass] + self._classes, value=unclass, description='Class:' )
         return widgets.HBox( [ self._wFind, wSelectAll, wSelectedClass ], justify_content="space-around", flex_wrap="wrap" )
 
-    def process_find(self, event ):
+    def _process_find(self, event):
         df: pd.DataFrame = self._current_table.get_changed_df()
         cname = self._cols[ self._current_column_index ]
         np_coldata = df[cname].values.astype('U')
         mask = np.char.startswith(np_coldata, event['new'] )
-        selection = df.index[mask].values
-        if not self._select_all: selection = selection[:1]
-        print( f" process_find, select_all={self._select_all}, event = {event}, selection={selection}")
-        self._current_table.change_selection( selection )
+        self._current_selection = df.index[mask].values
+        self._apply_selection()
 
-    def update_finder(self) -> str:
-        cval = self._wFind.value
-        self._wFind.value = cval + "$@#"
-        self._wFind.value = cval
-        return cval
+    def _clear_selection(self):
+        self._current_selection = []
+        self._wFind.value = ""
 
-    def process_select_all(self, event):
-        self.update_finder()
+    def _apply_selection(self):
+        if len( self._current_selection ) > 0:
+            selection = self._current_selection if self._select_all else self._current_selection[:1]
+            self._current_table.change_selection( selection )
+
+    def _process_select_all(self, event):
         self._select_all = event['new']
-
-        print( f"process_select_all: {event}, self._select_all = {self._select_all}" )
+        self._apply_selection()
 
     def _createTableTabs(self) -> widgets.Tab:
         wTab = widgets.Tab()
@@ -106,7 +116,6 @@ class TableManager(object):
         if self._wGui is None:
             self._wGui = self._createGui()
         return self._wGui
-
 
 tableManager = TableManager()
 
