@@ -16,13 +16,12 @@ class TableManager(object):
         self._classes: List[str] = None
         self._dataFrame: pd.DataFrame = None
         self._cols: List[str] = None
-        self._select_all: widgets.Checkbox = None
         self._tables: List[qgrid.QgridWidget] = []
         self._wTablesWidget: widgets.Tab = None
         self._current_column_index: int = 0
         self._current_table: qgrid.QgridWidget = None
         self._current_selection: List[int] = []
-        self._select_all = False
+        self.match_options = dict( select_all=False, case=True, match="Begins With")
         self._selection_listeners: List[Callable[[Dict],None]] = [ self._internal_listener ]
 
     def init(self, **kwargs):
@@ -73,16 +72,29 @@ class TableManager(object):
 
     def _createSelectionPanel( self ) -> widgets.HBox:
         unclass = 'unclassified'
+        box_size = "35px"
         self._wFind = widgets.Text( value='', placeholder='Find items', description='Find:', disabled=False, continuous_update = False )
-        wSelectAll = widgets.Checkbox(value=False, description='Select all', disabled=False, indent=False)
         self._wFind.observe(self._process_find, 'value')
-        wSelectAll.observe(self._process_select_all, 'value')
+        wFindOptions = self.createFindOptions()
         wSelectedClass = widgets.Dropdown( options=[unclass] + self._classes, value=unclass, description='Class:' )
-        return widgets.HBox( [ self._wFind, wSelectAll, wSelectedClass ], justify_content="space-around", flex_wrap="wrap" )
+  #      aLayout = widgets.Layout( width=box_size, max_width=box_size, min_width=box_size, height=box_size, max_height=box_size, min_height=box_size )
+        wFindOptions = widgets.Accordion( children=[wFindOptions] )
+        wFindOptions.set_title( 0, "Options")
+        print( f" wFindOptions: {wFindOptions.box_style}" )
+        return widgets.HBox( [ self._wFind, wFindOptions, wSelectedClass ], justify_content="space-around", flex_wrap="wrap" )
+
+    def createFindOptions(self):
+        wSelectAll = widgets.Checkbox(value=False, description='Select all:', disabled=False, indent=False)
+        wSelectAll.observe( partial( self._process_find_options, "select_all" ), 'value' )
+        wCase = widgets.Checkbox( value=True, description='Case Sensitive:', disabled=False, indent=False )
+        wCase.observe( partial( self._process_find_options, "case" ), 'value' )
+        wMatch = widgets.Select( options=['Begins With', 'Ends With', 'Contains'], value='Begins With', description='Match:', disabled=False, indent=False  )
+        wCase.observe( partial(self._process_find_options, "match" ), 'value' )
+        return widgets.VBox( [wSelectAll, wCase, wMatch ] )
 
     def _process_find(self, event: Dict[str,str]):
-        match_orient = "start"
-        match_case = True
+        match_orient = self.match_options['match']
+        match_case = self.match_options['case']
         df: pd.DataFrame = self._current_table.get_changed_df()
         cname = self._cols[ self._current_column_index ]
         np_coldata = df[cname].values.astype('U')
@@ -99,12 +111,13 @@ class TableManager(object):
         self._wFind.value = ""
 
     def _apply_selection(self):
-        if len( self._current_selection ) > 0:
-            selection = self._current_selection if self._select_all else self._current_selection[:1]
+        if len( self._wFind.value ) > 0:
+            select_all = self.match_options['select_all']
+            selection = self._current_selection if select_all else self._current_selection[:1]
             self._current_table.change_selection( selection )
 
-    def _process_select_all(self, event):
-        self._select_all = event['new']
+    def _process_find_options(self, type: str, event: Dict ):
+        self.match_options[ type ] = event['new']
         self._apply_selection()
 
     def _createTableTabs(self) -> widgets.Tab:
