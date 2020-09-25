@@ -80,11 +80,17 @@ class TableManager(object):
         wSelectedClass = widgets.Dropdown( options=[unclass] + self._classes, value=unclass, description='Class:' )
         return widgets.HBox( [ self._wFind, wSelectAll, wSelectedClass ], justify_content="space-around", flex_wrap="wrap" )
 
-    def _process_find(self, event):
+    def _process_find(self, event: Dict[str,str]):
+        match_orient = "start"
+        match_case = True
         df: pd.DataFrame = self._current_table.get_changed_df()
         cname = self._cols[ self._current_column_index ]
         np_coldata = df[cname].values.astype('U')
-        mask = np.char.startswith(np_coldata, event['new'] )
+        if not match_case: np_coldata = np.char.lower( np_coldata )
+        match_str = event['new'] if match_case else event['new'].lower()
+        if match_orient == "start":   mask = np.char.startswith( np_coldata, match_str )
+        elif match_orient == "end":   mask = np.char.endswith( np_coldata, match_str )
+        else:                         mask = ( np.char.find( np_coldata, match_str ) >= 0 )
         self._current_selection = df.index[mask].values
         self._apply_selection()
 
