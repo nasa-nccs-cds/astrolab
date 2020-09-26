@@ -5,13 +5,13 @@ from functools import partial
 import xarray as xa
 import numpy as np
 import pandas as pd
+from astrolab.gui.widgets import ToggleButton
 from astrolab.data.manager import dataManager
 import ipywidgets as widgets
 
 class TableManager(object):
 
     def __init__(self):
-        qgrid.on('All', self._handle_table_event)
         self._wGui: widgets.VBox = None
         self._classes: List[str] = None
         self._dataFrame: pd.DataFrame = None
@@ -21,8 +21,9 @@ class TableManager(object):
         self._current_column_index: int = 0
         self._current_table: qgrid.QgridWidget = None
         self._current_selection: List[int] = []
-        self.match_options = dict( select_all=False, case=True, match="Begins With")
         self._selection_listeners: List[Callable[[Dict],None]] = [ self._internal_listener ]
+        self._search_widgets = None
+        self._match_options = {}
 
     def init(self, **kwargs):
         nclass = kwargs.get('nclass',5)
@@ -41,6 +42,7 @@ class TableManager(object):
     def _handle_table_event(self, event, widget):
         self._current_table = widget
         ename = event['name']
+        print( f"table_event: {event}")
         if( ename == 'sort_changed'):
             self._current_column_index = self._cols.index( event['new']['column'] )
             self._clear_selection()
@@ -63,6 +65,7 @@ class TableManager(object):
             empty_catalog = {col: np.empty( [0], 'U' ) for col in self._cols}
             dFrame: pd.DataFrame = pd.DataFrame(empty_catalog, dtype='U')
             wTable = qgrid.show_grid( dFrame, column_options=col_opts, grid_options=grid_opts, show_toolbar=False )
+            wTable.on( ['sort_changed', 'selection_changed'], self._handle_table_event )
         return wTable
 
     def _createGui( self ) -> widgets.VBox:
@@ -72,37 +75,38 @@ class TableManager(object):
 
     def _createSelectionPanel( self ) -> widgets.HBox:
         unclass = 'unclassified'
-        box_size = "35px"
         self._wFind = widgets.Text( value='', placeholder='Find items', description='Find:', disabled=False, continuous_update = False )
         self._wFind.observe(self._process_find, 'value')
-        wFindOptions = self.createFindOptions()
+        wFindOptions = self._createFindOptionButtons()
         wSelectedClass = widgets.Dropdown( options=[unclass] + self._classes, value=unclass, description='Class:' )
-  #      aLayout = widgets.Layout( width=box_size, max_width=box_size, min_width=box_size, height=box_size, max_height=box_size, min_height=box_size )
-        wFindOptions = widgets.Accordion( children=[wFindOptions] )
-        wFindOptions.set_title( 0, "Options")
-        print( f" wFindOptions: {wFindOptions.box_style}" )
         return widgets.HBox( [ self._wFind, wFindOptions, wSelectedClass ], justify_content="space-around", flex_wrap="wrap" )
 
-    def createFindOptions(self):
-        wSelectAll = widgets.Checkbox(value=False, description='Select all:', disabled=False, indent=False)
-        wSelectAll.observe( partial( self._process_find_options, "select_all" ), 'value' )
-        wCase = widgets.Checkbox( value=True, description='Case Sensitive:', disabled=False, indent=False )
-        wCase.observe( partial( self._process_find_options, "case" ), 'value' )
-        wMatch = widgets.Select( options=['Begins With', 'Ends With', 'Contains'], value='Begins With', description='Match:', disabled=False, indent=False  )
-        wCase.observe( partial(self._process_find_options, "match" ), 'value' )
-        return widgets.VBox( [wSelectAll, wCase, wMatch ] )
+    def _createFindOptionButtons(self):
+        if self._search_widgets is None:
+            self._search_widgets = dict(
+                find_select=     ToggleButton( [ 'search-location', 'th-list'], ['find','select'], [ 'find first', 'select all'] ),
+                case_sensitive=  ToggleButton( ['font', 'asterisk'], ['true', 'false'],['case sensitive', 'case insensitive']),
+                match=           ToggleButton( ['caret-square-left', 'caret-square-right', 'caret-square-down'], ['begins-with', 'ends-with', 'contains'], ['begins with', 'ends with', 'contains'])
+            )
+            for name, widget in self._search_widgets.items():
+                widget.add_listener( partial( self._process_find_options, name ) )
+                self._match_options[ name ] = widget.state
+
+        return widgets.HBox( [ w.gui() for w in self._search_widgets.values() ] )
 
     def _process_find(self, event: Dict[str,str]):
-        match_orient = self.match_options['match']
-        match_case = self.match_options['case']
+        print( f"process_find: {event}")
+        match = self._match_options['match']
+        case_sensitive = ( self._match_options['case_sensitive'] == "true" )
         df: pd.DataFrame = self._current_table.get_changed_df()
         cname = self._cols[ self._current_column_index ]
         np_coldata = df[cname].values.astype('U')
-        if not match_case: np_coldata = np.char.lower( np_coldata )
-        match_str = event['new'] if match_case else event['new'].lower()
-        if match_orient == "start":   mask = np.char.startswith( np_coldata, match_str )
-        elif match_orient == "end":   mask = np.char.endswith( np_coldata, match_str )
-        else:                         mask = ( np.char.find( np_coldata, match_str ) >= 0 )
+        if not case_sensitive: np_coldata = np.char.lower( np_coldata )
+        match_str = event['new'] if case_sensitive else event['new'].lower()
+        if match == "begins-with":   mask = np.char.startswith( np_coldata, match_str )
+        elif match == "ends-with":   mask = np.char.endswith( np_coldata, match_str )
+        elif match == "contains":    mask = ( np.char.find( np_coldata, match_str ) >= 0 )
+        else: raise Exception( f"Unrecognized match option: {match}")
         self._current_selection = df.index[mask].values
         self._apply_selection()
 
@@ -112,13 +116,17 @@ class TableManager(object):
 
     def _apply_selection(self):
         if len( self._wFind.value ) > 0:
-            select_all = self.match_options['select_all']
-            selection = self._current_selection if select_all else self._current_selection[:1]
+            find_select = self._match_options['find_select']
+            selection = self._current_selection if find_select=="select" else self._current_selection[:1]
             self._current_table.change_selection( selection )
 
-    def _process_find_options(self, type: str, event: Dict ):
-        self.match_options[ type ] = event['new']
-        self._apply_selection()
+    def _process_find_options(self, name: str, state: str ):
+        print( f"process_find_options[{name}]: {state}" )
+        self._match_options[ name ] = state
+        if name == 'find_select':
+            self._apply_selection()
+        else:
+            self._process_find( dict( new=self._wFind.value ) )
 
     def _createTableTabs(self) -> widgets.Tab:
         wTab = widgets.Tab()
