@@ -78,10 +78,10 @@ class TableManager(object):
 
     def _createSelectionPanel( self ) -> widgets.HBox:
         unclass = 'unclassified'
-        self._wFind = widgets.Text( value='', placeholder='Find items', description='Find:', disabled=False, continuous_update = False )
+        self._wFind = widgets.Text( value='', placeholder='Find items', description='Find:', disabled=False, continuous_update = False, tooltip="Search in sorted column" )
         self._wFind.observe(self._process_find, 'value')
         wFindOptions = self._createFindOptionButtons()
-        wSelectedClass = widgets.Dropdown( options=[unclass] + self._classes, value=unclass, description='Class:' )
+        wSelectedClass = widgets.Dropdown( options=[unclass] + self._classes, value=unclass, description='Class:', tooltip="Set current class" )
         return widgets.HBox( [ self._wFind, wFindOptions, wSelectedClass ], justify_content="space-around", flex_wrap="wrap" )
 
     def _createFindOptionButtons(self):
