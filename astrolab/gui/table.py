@@ -1,4 +1,4 @@
-import qgrid
+import qgrid, logging
 from typing import List, Union, Tuple, Optional, Dict, Callable
 from IPython.core.debugger import set_trace
 from functools import partial
@@ -8,6 +8,7 @@ import pandas as pd
 from astrolab.gui.widgets import ToggleButton
 from astrolab.data.manager import dataManager
 import ipywidgets as widgets
+from traitlets import traitlets
 
 class TableManager(object):
 
@@ -43,6 +44,8 @@ class TableManager(object):
         self._current_table = widget
         ename = event['name']
         print( f"table_event: {event}")
+        self.logger.info( f"table_event: {event}" )
+
         if( ename == 'sort_changed'):
             self._current_column_index = self._cols.index( event['new']['column'] )
             self._clear_selection()
@@ -65,7 +68,7 @@ class TableManager(object):
             empty_catalog = {col: np.empty( [0], 'U' ) for col in self._cols}
             dFrame: pd.DataFrame = pd.DataFrame(empty_catalog, dtype='U')
             wTable = qgrid.show_grid( dFrame, column_options=col_opts, grid_options=grid_opts, show_toolbar=False )
-            wTable.on( ['sort_changed', 'selection_changed'], self._handle_table_event )
+        wTable.on( traitlets.All, self._handle_table_event )
         return wTable
 
     def _createGui( self ) -> widgets.VBox:
