@@ -14,32 +14,35 @@ from traitlets import traitlets
 
 class JbkGraph:
 
-    def __init__(self):
-        self.init_data()
+    def __init__( self, **kwargs ):
+        self.init_data(**kwargs)
         self._item_index = 0
-        self.fig = figure( background_fill_color='#efefef')   # plot_height=300, plot_width=600,
-        self.model = jbk.BokehModel(self.fig)
-        self._r = None
+        self.fig = figure( title=self.title, plot_height=300, y_range=[self.y.min(),self.y.max()], background_fill_color='#efefef' )
+        self._r = self.fig.line( self.x, self.y, color="#8888cc", line_width=1.5, alpha=0.8)
+        self._model = jbk.BokehModel(self.fig)
+        print( f"BokehModel: {self._model.keys}" )
+
+    def gui(self):
+        self.plot()
+        return self._model
 
     @classmethod
-    def init_data(cls):
-        try:   test = cls._x
-        except NameError:
+    def init_data(cls, **kwargs ):
+        if not hasattr(cls, '_x'):
             project_data: xa.Dataset = dataManager.loadCurrentProject()
             cls._x: np.ndarray = project_data["plot-x"].values
             cls._ploty: np.ndarray = project_data["plot-y"].values
-            cls._target_names = project_data.target_names.values
-            cls._obsids = project_data.obsids.values
+            cls._mdata: List[np.ndarray] = [ project_data[mdv].values for mdv in kwargs.get("mdata", []) ]
 
     def select_item(self, index: int ):
         self._item_index = index
 
     def plot(self):
         x, y = self.x, self.y
-        self.fig.y_range.update( start=y.min(), end=y.max() )
         self.fig.title.text = self.title
-        if self._r is None:     self._r = self.fig.line( x, y, color="#8888cc", line_width=1.5, alpha=0.8)
-        else:                   self._r.data_source.data['y'] =  y
+        self._r.data_source.data['y'] =  y
+        self.fig.y_range.update( start=y.min(), end=y.max() )
+        self._model.layout = {'width': '100%', 'max_width': "2000px"}
 
     @property
     def x(self) -> np.ndarray:
@@ -51,18 +54,19 @@ class JbkGraph:
 
     @property
     def title(self ) -> str:
-        return f"{self._target_names[ self._item_index ]} ({self._obsids[ self._item_index ]})"
+        return ' '.join( [ str(mdarray[self._item_index]) for mdarray in self._mdata ] )
 
 class GraphManager:
 
     def __init__( self, **kwargs ):
+        output_notebook()
         self._wGui: widgets.Tab() = None
         self._graphs: List[JbkGraph] = []
         self._ngraphs = kwargs.get( 'ngraphs', 8)
 
-    def gui(self) -> widgets.Tab():
+    def gui(self, **kwargs ) -> widgets.Tab():
         if self._wGui is None:
-            self._wGui = self._createGui()
+            self._wGui = self._createGui( **kwargs )
         return self._wGui
 
     def current_graph(self) -> JbkGraph:
@@ -73,13 +77,17 @@ class GraphManager:
         current_graph.select_item( item_index )
         current_graph.plot()
 
-    def _createGui(self) -> widgets.Tab():
+    def _createGui( self, **kwargs ) -> widgets.Tab():
         wTab = widgets.Tab()
-        for iG in range(self._ngraphs):
-            self._graphs.append( JbkGraph() )
-            wTab.set_title( iG, str(iG) )
-        wTab.children = self._graphs
+        self._graphs = [ JbkGraph( **kwargs ) for iG in range(self._ngraphs) ]
+        wTab.children = [ g.gui() for g in self._graphs ]
+        for iG in range(self._ngraphs): wTab.set_title(iG, str(iG))
         return wTab
+
+    def on_selection(self, selection_event: Dict ):
+        print( f" GRAPH.on_selection: {selection_event}" )
+        selection = selection_event['new']
+        self.plot_graph( selection[0] )
 
 
 graphManager = GraphManager()

@@ -44,7 +44,6 @@ class TableManager(object):
         self._current_table = widget
         ename = event['name']
         print( f"table_event: {event}")
-        self.logger.info( f"table_event: {event}" )
 
         if( ename == 'sort_changed'):
             self._current_column_index = self._cols.index( event['new']['column'] )
@@ -53,10 +52,11 @@ class TableManager(object):
             itab_index = self._tables.index( widget )
             cname = self._classes[ itab_index ]
             selection_event = dict( classname=cname, **event )
-            for listener in self._selection_listeners: listener( selection_event )
+            for listener in self._selection_listeners:
+                listener( selection_event )
 
     def _internal_listener(self, selection_event: Dict ):
-        print(f" selection_change: {selection_event}")
+        print(f" selection_change event: {selection_event}")
 
     def _createTable( self, tab_index: int ) -> qgrid.QgridWidget:
         assert self._dataFrame is not None, " TableManager has not been initialized "
@@ -82,7 +82,7 @@ class TableManager(object):
         self._wFind.observe(self._process_find, 'value')
         wFindOptions = self._createFindOptionButtons()
         wSelectedClass = widgets.Dropdown( options=[unclass] + self._classes, value=unclass, description='Class:', tooltip="Set current class" )
-        return widgets.HBox( [ self._wFind, wFindOptions, wSelectedClass ], justify_content="space-around", flex_wrap="wrap" )
+        return widgets.HBox( [ self._wFind, wFindOptions, wSelectedClass ], justify_content="space-between" )
 
     def _createFindOptionButtons(self):
         if self._search_widgets is None:
@@ -95,7 +95,9 @@ class TableManager(object):
                 widget.add_listener( partial( self._process_find_options, name ) )
                 self._match_options[ name ] = widget.state
 
-        return widgets.HBox( [ w.gui() for w in self._search_widgets.values() ] )
+        buttonbox =  widgets.HBox( [ w.gui() for w in self._search_widgets.values() ] )
+        buttonbox.layout.width = "120px"; buttonbox.layout.min_width = "120px"; buttonbox.layout.max_width = "120px"
+        return buttonbox
 
     def _process_find(self, event: Dict[str,str]):
         print( f"process_find: {event}")
@@ -142,8 +144,9 @@ class TableManager(object):
         wTab.children = self._tables
         return wTab
 
-    def gui(self) -> widgets.VBox:
+    def gui( self, **kwargs ) -> widgets.VBox:
         if self._wGui is None:
+            self.init( **kwargs )
             self._wGui = self._createGui()
         return self._wGui
 
