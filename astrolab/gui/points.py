@@ -1,6 +1,7 @@
 import numpy as np
 from astrolab.data.manager import dataManager
 from astrolab.reduction.embedding import reductionManager
+from typing import List, Union, Tuple, Optional, Dict, Callable
 from itkwidgets import view
 import xarray as xa
 
@@ -23,6 +24,17 @@ class PointCloudManager:
         reduced_data: xa.DataArray = project_dataset.reduction
         reduced_data.attrs['dsid'] = 'swift'
         self._embedding = reductionManager.umap_embedding(reduced_data)
+        self._marker_points = np.empty( shape=[0,3], dtype=np.float )
+
+    def on_selection(self, selection_event: Dict ):
+        print( f" POINTS.on_selection: {selection_event}" )
+        selection = selection_event['new']
+        self.plot_markers( selection )
+
+    def plot_markers(self, pids: List[int] ):
+        self.marker_points = self._embedding[ pids, : ]
+        self._gui.point_sets = [ self._embedding.values, self.marker_points ]
+#        self._gui.observe(self._gui._on_point_sets_changed, ['point_sets'])
 
     def configure(self, **kwargs ):
         width = kwargs.get( 'width', None )
@@ -39,9 +51,8 @@ class PointCloudManager:
     def gui(self, **kwargs ):
         if self._gui is None:
             self.init_data()
-            self._gui = view( point_sets = [ self._embedding.values ] )
-#            self.configure( **kwargs )
-            self._gui.layout = { 'width': '100%', 'height': '100%', 'max_height': "2000px", 'max_width': "2000px" }
+            self._gui = view( point_sets = [ self._embedding.values, self._marker_points ], point_set_sizes=[1,8], point_set_colors=[[1,1,1],[1,0.5,0]], background=[0,0,0] )
+            self._gui.layout = { 'width': 'auto', 'flex': '1 1 auto' }
         return self._gui
 
 pointCloudManager = PointCloudManager()

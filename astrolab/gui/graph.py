@@ -17,9 +17,9 @@ class JbkGraph:
     def __init__( self, **kwargs ):
         self.init_data(**kwargs)
         self._item_index = 0
-        self.fig = figure( title=self.title, plot_height=300, y_range=[self.y.min(),self.y.max()], background_fill_color='#efefef' )
+        self.fig = figure( title=self.title, height=300, width=1000,  y_range=[self.y.min(),self.y.max()], background_fill_color='#efefef' )
         self._r = self.fig.line( self.x, self.y, color="#8888cc", line_width=1.5, alpha=0.8)
-        self._model = jbk.BokehModel(self.fig)
+        self._model = jbk.BokehModel( self.fig, layout = ip.Layout( width= 'auto', height= 'auto' ) )
         print( f"BokehModel: {self._model.keys}" )
 
     def gui(self):
@@ -42,7 +42,6 @@ class JbkGraph:
         self.fig.title.text = self.title
         self._r.data_source.data['y'] =  y
         self.fig.y_range.update( start=y.min(), end=y.max() )
-        self._model.layout = {'width': '100%', 'max_width': "2000px"}
 
     @property
     def x(self) -> np.ndarray:
@@ -78,7 +77,7 @@ class GraphManager:
         current_graph.plot()
 
     def _createGui( self, **kwargs ) -> widgets.Tab():
-        wTab = widgets.Tab()
+        wTab = widgets.Tab( layout = ip.Layout( width='auto', flex='0 0 350px' ) )
         self._graphs = [ JbkGraph( **kwargs ) for iG in range(self._ngraphs) ]
         wTab.children = [ g.gui() for g in self._graphs ]
         for iG in range(self._ngraphs): wTab.set_title(iG, str(iG))
@@ -88,6 +87,5 @@ class GraphManager:
         print( f" GRAPH.on_selection: {selection_event}" )
         selection = selection_event['new']
         self.plot_graph( selection[0] )
-
 
 graphManager = GraphManager()

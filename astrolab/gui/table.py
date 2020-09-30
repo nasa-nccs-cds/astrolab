@@ -5,6 +5,7 @@ from functools import partial
 import xarray as xa
 import numpy as np
 import pandas as pd
+import ipywidgets as ipw
 from astrolab.gui.widgets import ToggleButton
 from astrolab.data.manager import dataManager
 import ipywidgets as widgets
@@ -69,6 +70,7 @@ class TableManager(object):
             dFrame: pd.DataFrame = pd.DataFrame(empty_catalog, dtype='U')
             wTable = qgrid.show_grid( dFrame, column_options=col_opts, grid_options=grid_opts, show_toolbar=False )
         wTable.on( traitlets.All, self._handle_table_event )
+        wTable.layout = ipw.Layout( width= 'auto', height= 'auto' )
         return wTable
 
     def _createGui( self ) -> widgets.VBox:
@@ -148,6 +150,7 @@ class TableManager(object):
         if self._wGui is None:
             self.init( **kwargs )
             self._wGui = self._createGui()
+            self._wGui.layout = ipw.Layout(width='auto', flex='1 0 800px')
         return self._wGui
 
 tableManager = TableManager()
