@@ -1,4 +1,4 @@
-import numpy as np
+import time, numpy as np
 from astrolab.data.manager import dataManager
 from astrolab.reduction.embedding import reductionManager
 from typing import List, Union, Tuple, Optional, Dict, Callable
@@ -19,22 +19,32 @@ class PointCloudManager:
     def __init__(self):
         self._gui = None
 
-    def init_data( self ):
+    def init_data( self, **kwargs  ):
         project_dataset = dataManager.loadCurrentProject()
         reduced_data: xa.DataArray = project_dataset.reduction
         reduced_data.attrs['dsid'] = 'swift'
-        self._embedding = reductionManager.umap_embedding(reduced_data)
+        self._embedding = reductionManager.umap_init( reduced_data, **kwargs  )
         self._marker_points = np.empty( shape=[0,3], dtype=np.float )
+
+    def reembed(self, **kwargs ):
+        t0 = time.time()
+        self._embedding = reductionManager.umap_embedding( **kwargs )
+        self.update_plot()
+        print(f"PointCloudManager: completed embed in {time.time()-t0} sec")
+
+    def update_plot( self, **kwargs ):
+        points = kwargs.get( 'points', self._embedding.values )
+        markers = kwargs.get('markers', self._marker_points )
+        self._gui.point_sets = [ points, markers ]
 
     def on_selection(self, selection_event: Dict ):
         print( f" POINTS.on_selection: {selection_event}" )
         selection = selection_event['new']
-        self.plot_markers( selection )
+        self.update_markers(selection)
 
-    def plot_markers(self, pids: List[int] ):
-        self.marker_points = self._embedding[ pids, : ]
-        self._gui.point_sets = [ self._embedding.values, self.marker_points ]
-#        self._gui.observe(self._gui._on_point_sets_changed, ['point_sets'])
+    def update_markers(self, pids: List[int]):
+        self._marker_points = self._embedding[ pids, : ]
+        self.update_plot()
 
     def configure(self, **kwargs ):
         width = kwargs.get( 'width', None )

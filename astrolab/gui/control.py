@@ -1,11 +1,13 @@
 import ipywidgets as ip
 from typing import List, Union, Tuple, Optional, Dict, Callable
 import time
+from functools import partial
 import xarray as xa
 import numpy as np
 import pandas as pd
 from astrolab.data.manager import dataManager
 import ipywidgets as ipw
+from .points import pointCloudManager
 from traitlets import traitlets
 
 
@@ -38,11 +40,16 @@ class ControlPanel:
             self._wGui = self._createGui( **kwargs )
         return self._wGui
 
+    def on_button_click( self, task, button: ipw.Button ):
+        print( f" on_button_click: task = {task}" )
+        if task == "embed": pointCloudManager.reembed()
+
     def _createGui( self, **kwargs ) -> ipw.Box:
         unclass = 'unclassified'
         for task in [ "embed", "mark", "spread", "clear", "reset" ]:
             button = ipw.Button( description=task )
             button.layout = ipw.Layout( width='auto', flex="1 0 auto" )
+            button.on_click( partial( self.on_button_click, task ) )
             self._buttons[ task ] = button
         self.wSelectedClass = ipw.RadioButtons(options=[unclass] + self._classes, value=unclass, description='Class:', tooltip="Set current class" )
         self.wSelectedClass.layout = ipw.Layout( width = "auto", height = "220px", max_width = "500px", max_height = "500px" )

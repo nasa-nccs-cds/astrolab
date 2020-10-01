@@ -6,13 +6,14 @@ from scipy.optimize import curve_fit
 from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state, check_array
 from sklearn.preprocessing import normalize
-
+from astrolab.graph.flow import ActivationFlow
 try:
     import joblib
 except ImportError:
     # sklearn.externals.joblib is deprecated in 0.21, will be removed in 0.23
     from sklearn.externals import joblib
 import numpy as np
+import xarray as xa
 import scipy.sparse
 import scipy.sparse.csgraph
 import umap.distances as dist
@@ -1014,23 +1015,21 @@ def optimize_layout_euclidean(
         The optimized embedding.
     """
     from ..data.manager import dataManager
+    from astrolab.gui.points import  pointCloudManager
     dim = head_embedding.shape[1]
     move_other = head_embedding.shape[0] == tail_embedding.shape[0]
     alpha = initial_alpha
     epochs_per_negative_sample = epochs_per_sample / negative_sample_rate
     epoch_of_next_negative_sample = epochs_per_negative_sample.copy()
     epoch_of_next_sample = epochs_per_sample.copy()
-    plot_mod = 2
     use_gpu = dataManager.config["umap"].get( "gpu", True )
     optimize_fn = numba.njit( _optimize_layout_euclidean_single_epoch, fastmath=True, parallel=parallel )
     if n_epochs == 1:
         pass
-#     eventCentral.submitEvent(dict(event="gui", type="plot", value=head_embedding, reset_camera=True),EventMode.Gui)
     else:
       print( f" >>> Embed n_epochs={n_epochs}, alpha={alpha} ")
       for n in range(n_epochs):
-        # if (n % plot_mod == 0) and (dim == 3):
-        #     eventCentral.submitEvent( dict( event="gui", type="plot", value=head_embedding, reset_camera=(n==0) ), EventMode.Gui  )
+        if dim == 3: pointCloudManager.update_plot( points=head_embedding )
         optimize_fn(
             head_embedding,
             tail_embedding,
@@ -1361,6 +1360,11 @@ class UMAP(BaseEstimator):
 
         self.a = a
         self.b = b
+
+        self.input_data: np.ndarray = None
+        self.flow: ActivationFlow = None
+        self.scoord: xa.DataArray = None
+
 
     def set_embedding(self, embed_ : np.ndarray ):
         self.external_embedding = embed_
