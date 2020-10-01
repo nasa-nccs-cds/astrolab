@@ -6,16 +6,16 @@ import xarray as xa
 import numpy as np
 import pandas as pd
 import ipywidgets as ipw
-from astrolab.gui.widgets import ToggleButton
+from .widgets import ToggleButton
 from astrolab.data.manager import dataManager
 import ipywidgets as widgets
 from traitlets import traitlets
+from .control import controlPanel
 
 class TableManager(object):
 
     def __init__(self):
         self._wGui: widgets.VBox = None
-        self._classes: List[str] = None
         self._dataFrame: pd.DataFrame = None
         self._cols: List[str] = None
         self._tables: List[qgrid.QgridWidget] = []
@@ -28,8 +28,6 @@ class TableManager(object):
         self._match_options = {}
 
     def init(self, **kwargs):
-        nclass = kwargs.get('nclass',5)
-        self._classes = kwargs.get('classes', [ f'class-{iclass}' for iclass in range(nclass)] )
         catalog: Dict[str,np.ndarray] = kwargs.get( 'catalog', None )
         if catalog is None:
             project_data: xa.Dataset = dataManager.loadCurrentProject()
@@ -51,7 +49,7 @@ class TableManager(object):
             self._clear_selection()
         elif (ename == 'selection_changed'):
             itab_index = self._tables.index( widget )
-            cname = self._classes[ itab_index ]
+            cname = controlPanel.get_classname( itab_index )
             selection_event = dict( classname=cname, **event )
             for listener in self._selection_listeners:
                 listener( selection_event )
@@ -61,8 +59,8 @@ class TableManager(object):
 
     def _createTable( self, tab_index: int ) -> qgrid.QgridWidget:
         assert self._dataFrame is not None, " TableManager has not been initialized "
-        col_opts = {'editable': False}
-        grid_opts = {'editable': False}
+        col_opts = dict( editable=False )
+        grid_opts = dict( editable=False, minVisibleRows=25 )
         if tab_index == 0:
             wTable = qgrid.show_grid( self._dataFrame, column_options=col_opts, grid_options=grid_opts, show_toolbar=False )
         else:
@@ -70,7 +68,7 @@ class TableManager(object):
             dFrame: pd.DataFrame = pd.DataFrame(empty_catalog, dtype='U')
             wTable = qgrid.show_grid( dFrame, column_options=col_opts, grid_options=grid_opts, show_toolbar=False )
         wTable.on( traitlets.All, self._handle_table_event )
-        wTable.layout = ipw.Layout( width= 'auto', height= 'auto' )
+        wTable.layout = ipw.Layout( width= 'auto', height="auto" )
         return wTable
 
     def _createGui( self ) -> widgets.VBox:
@@ -79,12 +77,10 @@ class TableManager(object):
         return widgets.VBox([wSelectionPanel, self._wTablesWidget])
 
     def _createSelectionPanel( self ) -> widgets.HBox:
-        unclass = 'unclassified'
         self._wFind = widgets.Text( value='', placeholder='Find items', description='Find:', disabled=False, continuous_update = False, tooltip="Search in sorted column" )
         self._wFind.observe(self._process_find, 'value')
         wFindOptions = self._createFindOptionButtons()
-        wSelectedClass = widgets.Dropdown( options=[unclass] + self._classes, value=unclass, description='Class:', tooltip="Set current class" )
-        return widgets.HBox( [ self._wFind, wFindOptions, wSelectedClass ], justify_content="space-between" )
+        return widgets.HBox( [ self._wFind, wFindOptions ], justify_content="center", width="auto" )
 
     def _createFindOptionButtons(self):
         if self._search_widgets is None:
@@ -140,7 +136,7 @@ class TableManager(object):
         self._current_table = self._createTable( 0 )
         self._tables.append( self._current_table )
         wTab.set_title( 0, 'Catalog')
-        for iC, ctitle in enumerate(self._classes):
+        for iC, ctitle in enumerate( controlPanel.classes ):
             self._tables.append(  self._createTable( iC+1 ) )
             wTab.set_title( iC+1, ctitle )
         wTab.children = self._tables
@@ -150,7 +146,7 @@ class TableManager(object):
         if self._wGui is None:
             self.init( **kwargs )
             self._wGui = self._createGui()
-            self._wGui.layout = ipw.Layout(width='auto', flex='1 0 800px')
+            self._wGui.layout = ipw.Layout(width='auto', flex='4 0 800px')
         return self._wGui
 
 tableManager = TableManager()
