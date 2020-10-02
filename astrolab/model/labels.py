@@ -3,6 +3,8 @@ from typing import List, Union, Dict, Callable, Tuple, Optional, Any
 import collections.abc
 from functools import partial
 from ..graph.flow import ActivationFlow
+import traitlets.config as tlc
+from astrolab.model.base import AstroSingleton
 import xarray as xa
 import numpy as np
 
@@ -74,10 +76,12 @@ class Action:
     def spec(self):
         return dict( atype=self.type, source=self.source , pids=self.pids, cid=self.cid, **self.args )
 
-class LabelsManager():
 
 
-    def __init__( self ):
+class LabelsManager(tlc.SingletonConfigurable,AstroSingleton):
+
+    def __init__(self, **kwargs):
+        super(LabelsManager, self).__init__(**kwargs)
         self._colors = None
         self._labels = None
         self.selectedClass = 0
@@ -334,5 +338,3 @@ class LabelsManager():
         for button in self.buttons:
             button.setChecked( cid == button.index )
         self.console.update()
-
-labelsManager = LabelsManager()

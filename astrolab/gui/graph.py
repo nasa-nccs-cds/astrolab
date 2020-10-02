@@ -1,16 +1,14 @@
 from bokeh.plotting import figure
 from bokeh.io import output_notebook
-import bokeh.models.widgets as bk
 import jupyter_bokeh as jbk
 import ipywidgets as ip
 from typing import List, Union, Tuple, Optional, Dict, Callable
-import time
 import xarray as xa
 import numpy as np
-import pandas as pd
-from astrolab.data.manager import dataManager
+from astrolab.data.manager import DataManager
 import ipywidgets as widgets
-from traitlets import traitlets
+import traitlets.config as tlc
+from astrolab.model.base import AstroSingleton
 
 class JbkGraph:
 
@@ -29,7 +27,7 @@ class JbkGraph:
     @classmethod
     def init_data(cls, **kwargs ):
         if not hasattr(cls, '_x'):
-            project_data: xa.Dataset = dataManager.loadCurrentProject()
+            project_data: xa.Dataset = DataManager.instance().loadCurrentProject()
             cls._x: np.ndarray = project_data["plot-x"].values
             cls._ploty: np.ndarray = project_data["plot-y"].values
             cls._mdata: List[np.ndarray] = [ project_data[mdv].values for mdv in kwargs.get("mdata", []) ]
@@ -55,9 +53,10 @@ class JbkGraph:
     def title(self ) -> str:
         return ' '.join( [ str(mdarray[self._item_index]) for mdarray in self._mdata ] )
 
-class GraphManager:
+class GraphManager(tlc.SingletonConfigurable,AstroSingleton):
 
     def __init__( self, **kwargs ):
+        super(GraphManager, self).__init__( **kwargs )
         output_notebook()
         self._wGui: widgets.Tab() = None
         self._graphs: List[JbkGraph] = []
@@ -87,5 +86,3 @@ class GraphManager:
         print( f" GRAPH.on_selection: {selection_event}" )
         selection = selection_event['new']
         self.plot_graph( selection[0] )
-
-graphManager = GraphManager()

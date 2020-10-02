@@ -1,4 +1,4 @@
-from .manager import dataManager
+from .manager import DataManager
 import xarray as xa
 import numpy as np
 import os, glob
@@ -6,10 +6,10 @@ from collections import OrderedDict
 from typing import List, Union, Tuple, Optional, Dict
 from functools import partial
 from typing import Optional, Dict
-from astrolab.reduction.embedding import reductionManager
+from astrolab.reduction.embedding import ReductionManager
 
 def getXarray(  id: str, xcoords: Dict, subsample: int, xdims:OrderedDict, **kwargs ) -> xa.DataArray:
-    np_data: np.ndarray = dataManager.getInputFileData( id, subsample, tuple(xdims.keys()) )
+    np_data: np.ndarray = DataManager.instance().getInputFileData( id, subsample, tuple(xdims.keys()) )
     dims, coords = [], {}
     for iS in np_data.shape:
         coord_name = xdims[iS]
@@ -19,8 +19,8 @@ def getXarray(  id: str, xcoords: Dict, subsample: int, xdims:OrderedDict, **kwa
     return xa.DataArray( np_data, dims=dims, coords=coords, name=id, attrs=attrs )
 
 def prepare_inputs( input_vars, ssample = None ):
-    subsample = int(dataManager.config.value("input.reduction/subsample", 1 ) ) if ssample is None else ssample
-#    values = { k: dataManager.config.value(k) for k in dataManager.config.allKeys() }
+    dataManager = DataManager.instance()
+    subsample = dataManager.subsample if ssample is None else ssample
     np_embedding = dataManager.getInputFileData( input_vars['embedding'], subsample )
     dims = np_embedding.shape
     mdata_vars = list(input_vars['directory'])
@@ -34,7 +34,7 @@ def prepare_inputs( input_vars, ssample = None ):
     ndim = int(dataManager.config.value("input.reduction/ndim", 32 ))
     epochs = int(dataManager.config.value("input.reduction/epochs", 1))
     if reduction_method != "None":
-       reduced_spectra = reductionManager.reduce( data_vars['embedding'], reduction_method, ndim, epochs )
+       reduced_spectra = ReductionManager.instance().reduce( data_vars['embedding'], reduction_method, ndim, epochs )
        coords = dict( samples=xcoords['samples'], model=np.arange(ndim) )
        data_vars['reduction'] =  xa.DataArray( reduced_spectra, dims=['samples','model'], coords=coords )
 

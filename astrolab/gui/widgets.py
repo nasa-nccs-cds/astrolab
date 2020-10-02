@@ -1,7 +1,6 @@
 from typing import List, Union, Tuple, Optional, Dict, Callable
 from IPython.core.debugger import set_trace
 from functools import partial
-import pandas as pd
 import ipywidgets as widgets
 
 class ToggleButton:

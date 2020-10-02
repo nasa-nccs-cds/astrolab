@@ -2,26 +2,35 @@ import xarray as xa
 import time, traceback
 import numpy as np
 
-from .embedding import reductionManager
+from reduction.embedding import reductionManager
 from functools import partial
 from hyperclass.graph.flow import activationFlowManager
 from umap.model import UMAP
 from collections import OrderedDict
 from typing import List, Tuple, Optional, Dict
 from hyperclass.plot.point_cloud import PointCloud
-from ..data.manager import dataManager
+from data.manager import dataManager
 # from hyperclass.gui.tasks import taskRunner, Task
 
 cfg_str = lambda x:  "-".join( [ str(i) for i in x ] )
 
-class UMAPManager(object):
+import traitlets.config as tlc
+
+class UMAPManager(tlc.SingletonConfigurable):
+    reduce_method = tl.Unicode("Autoencoder")
+    cache_dir = tl.Unicode("~/Development/Cache")
+    data_dir = tl.Unicode("~/Development/Cache")
+    project_name = tl.Unicode("astrolab")
+    reduce_dims = tl.Int( 16 )
+    reduce_subsample = tl.Int( 1 )
 
     UNDEF = -1
     INIT = 0
     NEW_DATA = 1
     PROCESSED = 2
 
-    def __init__(self,  **kwargs ):
+    def __init__(self, **kwargs):
+        super(UMAPManager, self).__init__(**kwargs)
         self.point_cloud: PointCloud = PointCloud( )
         self._point_data = None
         self._gui = None

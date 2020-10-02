@@ -4,16 +4,15 @@ import time
 from functools import partial
 import xarray as xa
 import numpy as np
-import pandas as pd
-from astrolab.data.manager import dataManager
 import ipywidgets as ipw
-from .points import pointCloudManager
-from traitlets import traitlets
+from .points import PointCloudManager
+import traitlets.config as tlc
+from astrolab.model.base import AstroSingleton
 
+class ControlPanel(tlc.SingletonConfigurable,AstroSingleton):
 
-class ControlPanel:
-
-    def __init__( self, **kwargs ):
+    def __init__(self, **kwargs):
+        super(ControlPanel, self).__init__(**kwargs)
         self._wGui: ipw.Box = None
         self._buttons = {}
         self._classes: List[str] = None
@@ -42,7 +41,7 @@ class ControlPanel:
 
     def on_button_click( self, task, button: ipw.Button ):
         print( f" on_button_click: task = {task}" )
-        if task == "embed": pointCloudManager.reembed()
+        if task == "embed": PointCloudManager.instance().reembed()
 
     def _createGui( self, **kwargs ) -> ipw.Box:
         unclass = 'unclassified'
@@ -58,5 +57,3 @@ class ControlPanel:
         gui = ipw.VBox( [buttonBox, self.wSelectedClass]  ) # width = "auto",  flex='1 0 300px' )
         gui.layout = ipw.Layout( width = "100%",  height='100%' )
         return gui
-
-controlPanel = ControlPanel()

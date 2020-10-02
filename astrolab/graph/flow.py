@@ -4,9 +4,10 @@ import numpy.ma as ma
 import xarray as xa
 import numba
 from typing import List, Union, Tuple, Optional, Dict
-from astrolab.data.manager import dataManager
-#from astrolab.workflow.tasks import taskRunner, Task
 import os, time, threading, traceback
+import traitlets.config as tlc
+import traitlets as tl
+from astrolab.model.base import AstroSingleton
 
 @numba.njit(fastmath=True,
     locals={
@@ -52,9 +53,11 @@ def iterate_spread_labels( I: np.ndarray, D: np.ndarray, C: np.ndarray, P: np.nd
                 C[pid1] = label_spec[1]
                 P[pid1] = PN
 
-class ActivationFlowManager:
+class ActivationFlowManager(tlc.SingletonConfigurable,AstroSingleton):
+    nneighbors = tl.Int( 5 ).tag(config=True)
 
-    def __init__( self ):
+    def __init__(self, **kwargs):
+        super(ActivationFlowManager, self).__init__(**kwargs)
         self.instances = {}
         self.condition = threading.Condition()
 
@@ -81,11 +84,12 @@ class ActivationFlowManager:
         return result
 
     def create_flow(self, point_data: xa.DataArray, **kwargs):
-        return ActivationFlow( point_data, **kwargs )
+        return ActivationFlow( point_data, self.nneighbors, **kwargs )
 
 class ActivationFlow(object):
 
-    def __init__(self, nodes_data: xa.DataArray,  **kwargs ):
+    def __init__(self, nodes_data: xa.DataArray, n_neighbors: int, **kwargs ):
+        self.nneighbors = n_neighbors
         self.nodes: xa.DataArray = None
         self.nnd: NNDescent = None
         self.I: np.ndarray = None
@@ -114,7 +118,7 @@ class ActivationFlow(object):
             if (nodes_data.size > 0):
                 t0 = time.time()
                 self.nodes = nodes_data
-                self.nnd = self.getNNGraph( nodes_data, **kwargs )
+                self.nnd = self.getNNGraph( nodes_data, self.nneighbors,  **kwargs )
                 self.I = self.nnd.neighbor_graph[0]
                 self.D = self.nnd.neighbor_graph[1]
                 dt = (time.time()-t0)
@@ -123,8 +127,7 @@ class ActivationFlow(object):
                 print( "No data available for this block")
 
     @classmethod
-    def getNNGraph(cls, nodes: xa.DataArray, **kwargs ):
-        n_neighbors = dataManager.config["umap"].get("nneighbors", 8 )
+    def getNNGraph(cls, nodes: xa.DataArray, n_neighbors: int, **kwargs ):
         n_trees = kwargs.get('ntree', 5 + int(round((nodes.shape[0]) ** 0.5 / 20.0)))
         n_iters = kwargs.get('niter', max(5, 2 * int(round(np.log2(nodes.shape[0])))))
         nnd = NNDescent(nodes.values, n_trees=n_trees, n_iters=n_iters, n_neighbors=n_neighbors, max_candidates=60, verbose=True)
@@ -173,7 +176,5 @@ class ActivationFlow(object):
         print(f"Completed graph flow {nIter} iterations in {(t1 - t0)} sec, Class Range = [ {xC.min().values} -> {xC.max().values} ], #marked = {np.count_nonzero(xC.values)}")
         self.reset = False
         return xa.Dataset( dict( C=xC, D=xP ) )
-
-activationFlowManager = ActivationFlowManager()
 
 

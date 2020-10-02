@@ -1014,22 +1014,20 @@ def optimize_layout_euclidean(
     embedding: array of shape (n_samples, n_components)
         The optimized embedding.
     """
-    from ..data.manager import dataManager
-    from astrolab.gui.points import  pointCloudManager
+    from astrolab.gui.points import  PointCloudManager
     dim = head_embedding.shape[1]
     move_other = head_embedding.shape[0] == tail_embedding.shape[0]
     alpha = initial_alpha
     epochs_per_negative_sample = epochs_per_sample / negative_sample_rate
     epoch_of_next_negative_sample = epochs_per_negative_sample.copy()
     epoch_of_next_sample = epochs_per_sample.copy()
-    use_gpu = dataManager.config["umap"].get( "gpu", True )
     optimize_fn = numba.njit( _optimize_layout_euclidean_single_epoch, fastmath=True, parallel=parallel )
     if n_epochs == 1:
         pass
     else:
       print( f" >>> Embed n_epochs={n_epochs}, alpha={alpha} ")
       for n in range(n_epochs):
-        if dim == 3: pointCloudManager.update_plot( points=head_embedding )
+        if dim == 3: PointCloudManager.instance().update_plot( points=head_embedding )
         optimize_fn(
             head_embedding,
             tail_embedding,

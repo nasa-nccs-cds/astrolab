@@ -7,14 +7,17 @@ import numpy as np
 import pandas as pd
 import ipywidgets as ipw
 from .widgets import ToggleButton
-from astrolab.data.manager import dataManager
+from astrolab.data.manager import DataManager
 import ipywidgets as widgets
 from traitlets import traitlets
-from .control import controlPanel
+from .control import ControlPanel
+import traitlets.config as tlc
+from astrolab.model.base import AstroSingleton
 
-class TableManager(object):
+class TableManager(tlc.SingletonConfigurable,AstroSingleton):
 
-    def __init__(self):
+    def __init__(self, **kwargs):
+        super(TableManager, self).__init__(**kwargs)
         self._wGui: widgets.VBox = None
         self._dataFrame: pd.DataFrame = None
         self._cols: List[str] = None
@@ -30,7 +33,7 @@ class TableManager(object):
     def init(self, **kwargs):
         catalog: Dict[str,np.ndarray] = kwargs.get( 'catalog', None )
         if catalog is None:
-            project_data: xa.Dataset = dataManager.loadCurrentProject()
+            project_data: xa.Dataset = DataManager.instance().loadCurrentProject()
             table_cols = kwargs.get( 'cols', project_data.variables.keys() )
             catalog = { tcol: project_data[tcol].values for tcol in table_cols }
         self._dataFrame: pd.DataFrame = pd.DataFrame(catalog, dtype='U')
@@ -49,7 +52,7 @@ class TableManager(object):
             self._clear_selection()
         elif (ename == 'selection_changed'):
             itab_index = self._tables.index( widget )
-            cname = controlPanel.get_classname( itab_index )
+            cname = ControlPanel.instance().get_classname( itab_index )
             selection_event = dict( classname=cname, **event )
             for listener in self._selection_listeners:
                 listener( selection_event )
@@ -136,7 +139,7 @@ class TableManager(object):
         self._current_table = self._createTable( 0 )
         self._tables.append( self._current_table )
         wTab.set_title( 0, 'Catalog')
-        for iC, ctitle in enumerate( controlPanel.classes ):
+        for iC, ctitle in enumerate( ControlPanel.instance().classes ):
             self._tables.append(  self._createTable( iC+1 ) )
             wTab.set_title( iC+1, ctitle )
         wTab.children = self._tables
@@ -148,6 +151,4 @@ class TableManager(object):
             self._wGui = self._createGui()
             self._wGui.layout = ipw.Layout(width='auto', flex='4 0 800px')
         return self._wGui
-
-tableManager = TableManager()
 

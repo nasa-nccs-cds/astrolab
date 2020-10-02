@@ -2,16 +2,23 @@ import numpy as np
 from typing import List, Union, Tuple, Optional, Dict
 import os, math, pickle
 import xarray as xa
-from astrolab.config.settings import SettingsManager
+import traitlets as tl
+import traitlets.config as tlc
+from astrolab.model.base import AstroSingleton
 
-class DataManager(SettingsManager):
+class DataManager(tlc.SingletonConfigurable,AstroSingleton):
+    reduce_method = tl.Unicode("Autoencoder").tag(config=True)
+    cache_dir = tl.Unicode("~/Development/Cache").tag(config=True)
+    data_dir = tl.Unicode("~/Development/Cache").tag(config=True)
+    project_name = tl.Unicode("astrolab").tag(config=True)
+    model_dims = tl.Int(16).tag(config=True)
+    subsample = tl.Int( 5 ).tag(config=True)
 
-    def __init__( self, **kwargs ):
-        SettingsManager.__init__(  self, **kwargs )
+    def __init__(self, **kwargs):
+        super(DataManager, self).__init__(**kwargs)
 
     def getInputFileData(self, input_file_id: str, subsample: int = 1, dims: Tuple[int] = None ):
-        data_dir = self.config.get(f"data").get("dir")
-        input_file_path = os.path.join( data_dir, f"{input_file_id}.pkl")
+        input_file_path = os.path.join( self.data_dir, f"{input_file_id}.pkl")
         try:
             if os.path.isfile(input_file_path):
                 print(f"Reading unstructured {input_file_id} data from file {input_file_path}")
@@ -39,16 +46,12 @@ class DataManager(SettingsManager):
         return dataset
 
     def loadCurrentProject(self) -> xa.Dataset:
-        reduce_method = dataManager.config.get("reduce").get("method")
-        reduce_dims = dataManager.config.get("reduce").get("dims")
-        reduce_subsample = dataManager.config.get("reduce").get("subsample")
-        projId = f"{reduce_method}-{reduce_dims}-ss{reduce_subsample}"
+
+        projId = f"{self.reduce_method}-{self.model_dims}-ss{self.subsample}"
         return self.loadDataset( projId )
 
     @property
     def datasetDir(self):
-        dsdir = os.path.join( dataManager.config.get('data').get('cache'), dataManager.project_name )
+        dsdir = os.path.join( self.cache_dir, self.project_name )
         os.makedirs( dsdir, exist_ok=True )
         return dsdir
-
-dataManager = DataManager()

@@ -1,34 +1,28 @@
 import time, numpy as np
-from astrolab.data.manager import dataManager
-from astrolab.reduction.embedding import reductionManager
+from astrolab.data.manager import DataManager
+from astrolab.reduction.embedding import ReductionManager
 from typing import List, Union, Tuple, Optional, Dict, Callable
 from itkwidgets import view
 import xarray as xa
+import traitlets.config as tlc
+from astrolab.model.base import AstroSingleton
 
-config = dict(
-    reduce = dict( method="Autoencoder", dims=16, subsample=5 ),
-    data = dict( cache="~/Development/Cache" ),
-    umap = dict( dims=3, nepochs=100, alpha=0.25, nneighbors=8 ),
-)
+class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
 
-dataManager.initProject( 'swiftclass', 'read_data_test', config )
-dataManager.save()
-
-class PointCloudManager:
-
-    def __init__(self):
+    def __init__(self, **kwargs):
+        super(PointCloudManager, self).__init__(**kwargs)
         self._gui = None
 
     def init_data( self, **kwargs  ):
-        project_dataset = dataManager.loadCurrentProject()
+        project_dataset = DataManager.instance().loadCurrentProject()
         reduced_data: xa.DataArray = project_dataset.reduction
         reduced_data.attrs['dsid'] = 'swift'
-        self._embedding = reductionManager.umap_init( reduced_data, **kwargs  )
+        self._embedding = ReductionManager.instance().umap_init( reduced_data, **kwargs  )
         self._marker_points = np.empty( shape=[0,3], dtype=np.float )
 
     def reembed(self, **kwargs ):
         t0 = time.time()
-        self._embedding = reductionManager.umap_embedding( **kwargs )
+        self._embedding = ReductionManager.instance().umap_embedding( **kwargs )
         self.update_plot()
         print(f"PointCloudManager: completed embed in {time.time()-t0} sec")
 
@@ -64,5 +58,3 @@ class PointCloudManager:
             self._gui = view( point_sets = [ self._embedding.values, self._marker_points ], point_set_sizes=[1,8], point_set_colors=[[1,1,1],[1,0.5,0]], background=[0,0,0] )
             self._gui.layout = { 'width': 'auto', 'flex': '1 1 auto' }
         return self._gui
-
-pointCloudManager = PointCloudManager()
