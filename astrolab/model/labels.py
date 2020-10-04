@@ -4,7 +4,7 @@ import collections.abc
 from functools import partial
 from ..graph.flow import ActivationFlow
 import traitlets.config as tlc
-from astrolab.model.base import AstroSingleton
+from astrolab.model.base import AstroSingleton, Marker
 import xarray as xa
 import numpy as np
 
@@ -33,30 +33,6 @@ def set_alphas( colors, alpha ):
 
 def set_alpha( color, alpha ):
     return color[:3] + [alpha]
-
-class Marker:
-    def __init__(self, color: List[float], pids: List[int], cid: int ):
-        self.color = color
-        self.cid = cid
-        self.pids = set(pids)
-
-    def isTransient(self):
-        return self.cid == 0
-
-    def isEmpty(self):
-        return len( self.pids ) == 0
-
-    def deletePid( self, pid: int ) -> bool:
-        try:
-            self.pids.remove( pid )
-            return True
-        except: return False
-
-    def deletePids( self, pids: List[int] ) -> bool:
-        try:
-            self.pids -= set( pids )
-            return True
-        except: return False
 
 class Action:
     def __init__(self, type: str, source: str, pids: List[int], cid, **kwargs ):
@@ -220,15 +196,15 @@ class LabelsManager(tlc.SingletonConfigurable,AstroSingleton):
         return icolor, self._colors[ icolor ]
 
     @property
-    def colors(self):
+    def colors(self)-> List[Tuple]:
         return self._colors
 
     @property
-    def labels(self):
+    def labels(self) -> List[str]:
         return self._labels
 
     @property
-    def nLabels(self):
+    def nLabels(self) -> int:
         return len(self._labels)
 
     def setLabels(self, labels: List[Tuple[str, List[float]]], **kwargs):

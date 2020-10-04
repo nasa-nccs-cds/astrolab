@@ -38,7 +38,7 @@ class Astrolab( tlc.SingletonConfigurable, AstroSingleton ):
             print( f"Writing config file: {self.config_file}")
             cfile_handle.write( conf_txt )
 
-    def gui(self):
+    def gui( self, embed: bool = False ):
         from astrolab.gui.graph import GraphManager
         from astrolab.gui.points import PointCloudManager
         from astrolab.gui.table import TableManager
@@ -60,6 +60,7 @@ class Astrolab( tlc.SingletonConfigurable, AstroSingleton ):
         plot = ipw.VBox([points, graph], layout=ipw.Layout(flex='1 1 auto'))
         gui = ipw.HBox([control, plot])
         self.save_config()
+        if embed: ControlPanel.instance().embed()
         return gui
 
     def __delete__(self, instance):

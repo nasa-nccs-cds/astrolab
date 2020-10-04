@@ -10,7 +10,7 @@ from .widgets import ToggleButton
 from astrolab.data.manager import DataManager
 import ipywidgets as widgets
 from traitlets import traitlets
-from .control import ControlPanel
+from astrolab.model.labels import LabelsManager
 import traitlets.config as tlc
 from astrolab.model.base import AstroSingleton
 
@@ -42,6 +42,10 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
     def add_selection_listerner( self, listener: Callable[[Dict],None] ):
         self._selection_listeners.append( listener )
 
+    def mark_selection(self):
+        from .points import PointCloudManager
+        PointCloudManager.instance().mark_points( self._current_selection )
+
     def _handle_table_event(self, event, widget):
         self._current_table = widget
         ename = event['name']
@@ -52,8 +56,9 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
             self._clear_selection()
         elif (ename == 'selection_changed'):
             itab_index = self._tables.index( widget )
-            cname = ControlPanel.instance().get_classname( itab_index )
+            cname = LabelsManager.instance().labels[ itab_index ]
             selection_event = dict( classname=cname, **event )
+            self._current_selection = event["new"]
             for listener in self._selection_listeners:
                 listener( selection_event )
 
@@ -139,7 +144,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         self._current_table = self._createTable( 0 )
         self._tables.append( self._current_table )
         wTab.set_title( 0, 'Catalog')
-        for iC, ctitle in enumerate( ControlPanel.instance().classes ):
+        for iC, ctitle in enumerate( LabelsManager.instance().labels):
             self._tables.append(  self._createTable( iC+1 ) )
             wTab.set_title( iC+1, ctitle )
         wTab.children = self._tables

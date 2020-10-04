@@ -1,6 +1,30 @@
 import traitlets.config as tlc
 from collections import OrderedDict
+from typing import List, Union, Dict, Callable, Tuple, Optional, Any
 import traitlets as tl
+
+class Marker:
+    def __init__(self,  pids: List[int], cid: int ):
+        self.cid = cid
+        self.pids = set(pids)
+
+    def isTransient(self):
+        return self.cid == 0
+
+    def isEmpty(self):
+        return len( self.pids ) == 0
+
+    def deletePid( self, pid: int ) -> bool:
+        try:
+            self.pids.remove( pid )
+            return True
+        except: return False
+
+    def deletePids( self, pids: List[int] ) -> bool:
+        try:
+            self.pids -= set( pids )
+            return True
+        except: return False
 
 class AstroSingleton:
     config_classes = []
