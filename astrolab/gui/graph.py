@@ -83,6 +83,7 @@ class GraphManager(tlc.SingletonConfigurable,AstroSingleton):
         return wTab
 
     def on_selection(self, selection_event: Dict ):
-        print( f" GRAPH.on_selection: {selection_event}" )
         selection = selection_event['new']
-        self.plot_graph( selection[0] )
+        if len( selection ) > 0:
+            print(f" GRAPH.on_selection: nitems = {len(selection)}")
+            self.plot_graph( selection[0] )

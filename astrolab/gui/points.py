@@ -13,8 +13,11 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
     def __init__(self, **kwargs):
         super(PointCloudManager, self).__init__(**kwargs)
         self._gui = None
-        self._marker_points = { ic: np.empty( shape=[0,3], dtype=np.float ) for ic in range( LabelsManager.instance().nLabels ) }
+        self._marker_points = [ self.empty_pointset for ic in range( LabelsManager.instance().nLabels ) ]
 
+    @property
+    def empty_pointset(self) -> np.ndarray:
+        return np.empty(shape=[0, 3], dtype=np.float)
 
     def init_data( self, **kwargs  ):
         project_dataset = DataManager.instance().loadCurrentProject()
@@ -30,16 +33,16 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
 
     def update_plot( self, **kwargs ):
         points = kwargs.get( 'points', self._embedding.values )
-        new_point_sets = [ points ] + list( self._marker_points.values() )
+        new_point_sets = [ points ] + self._marker_points
         self._gui.point_sets = new_point_sets
 
     def on_selection(self, selection_event: Dict ):
-        print( f" POINTS.on_selection: {selection_event}" )
         selection = selection_event['new']
         self.update_markers(selection)
 
     def update_markers(self, pids: List[int]):
         self._marker_points[0] = self._embedding[ pids, : ]
+        print(f" POINTS.update_markers: n-markers = {self._marker_points[0].shape[0]}")
         self.update_plot()
 
     def mark_points(self, pids: List[int] ):
@@ -47,6 +50,7 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
         from astrolab.model.labels import LabelsManager
         ctrl = ControlPanel.instance()
         print( f"Marked[{ctrl.current_cid}]: {pids}")
+        self._marker_points[ 0 ] = self.empty_pointset
         self._marker_points[ ctrl.current_cid ] = self._embedding[ pids ]
         LabelsManager.instance().addMarker( Marker( pids, ctrl.current_class ) )
         self.update_plot()
@@ -65,14 +69,13 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
 
     @property
     def point_sets(self):
-        ps = [ self._embedding.values ] + list( self._marker_points.values() )
-        print( ps )
-        return ps
+        return [ self._embedding.values ] + self._marker_points
 
     def gui(self, **kwargs ):
         if self._gui is None:
             self.init_data()
-            colors = [ [1.0, 1.0, 1.0, 1.0], ] + LabelsManager.instance().colors
-            self._gui = view( point_sets = self.point_sets, point_set_sizes=[1,8], point_set_colors=colors, background=[0,0,0] )
+            ptcolors = [ [1.0, 1.0, 1.0, 1.0], ] + LabelsManager.instance().colors
+            ptsizes = [1] + [8]*LabelsManager.instance().nLabels
+            self._gui = view( point_sets = self.point_sets, point_set_sizes=ptsizes, point_set_colors=ptcolors, background=[0,0,0] )
             self._gui.layout = { 'width': 'auto', 'flex': '1 1 auto' }
         return self._gui

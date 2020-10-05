@@ -49,8 +49,6 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
     def _handle_table_event(self, event, widget):
         self._current_table = widget
         ename = event['name']
-        print( f"table_event: {event}")
-
         if( ename == 'sort_changed'):
             self._current_column_index = self._cols.index( event['new']['column'] )
             self._clear_selection()
@@ -58,19 +56,22 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
             itab_index = self._tables.index( widget )
             cname = LabelsManager.instance().labels[ itab_index ]
             selection_event = dict( classname=cname, **event )
-            self._current_selection = event["new"]
+            new_pids = event["new"]
+            self._current_selection = new_pids
+            print(f"TABLE.selection_changed[{itab_index}:{cname}], nitems = {len(new_pids)}")
             for listener in self._selection_listeners:
                 listener( selection_event )
 
     def _internal_listener(self, selection_event: Dict ):
-        print(f" selection_change event: {selection_event}")
+        new_items = selection_event['new']
+        print(f" TABLE-internal, selection_change: nitems={len(new_items)}")
 
     def _createTable( self, tab_index: int ) -> qgrid.QgridWidget:
         assert self._dataFrame is not None, " TableManager has not been initialized "
         col_opts = dict( editable=False )
         grid_opts = dict( editable=False, minVisibleRows=25 )
         if tab_index == 0:
-            wTable = qgrid.show_grid( self._dataFrame, column_options=col_opts, grid_options=grid_opts, show_toolbar=False )
+            wTable = qgrid.show_grid( self._dataFrame.sort_values(self._cols[0] ), column_options=col_opts, grid_options=grid_opts, show_toolbar=False )
         else:
             empty_catalog = {col: np.empty( [0], 'U' ) for col in self._cols}
             dFrame: pd.DataFrame = pd.DataFrame(empty_catalog, dtype='U')
@@ -106,7 +107,6 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         return buttonbox
 
     def _process_find(self, event: Dict[str,str]):
-        print( f"process_find: {event}")
         match = self._match_options['match']
         case_sensitive = ( self._match_options['case_sensitive'] == "true" )
         df: pd.DataFrame = self._current_table.get_changed_df()
@@ -118,6 +118,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         elif match == "ends-with":   mask = np.char.endswith( np_coldata, match_str )
         elif match == "contains":    mask = ( np.char.find( np_coldata, match_str ) >= 0 )
         else: raise Exception( f"Unrecognized match option: {match}")
+        print( f"process_find[ M:{match} CS:{case_sensitive} CI:{self._current_column_index} ], cname = {cname}, nitems: {mask.shape[0]}")
         self._current_selection = df.index[mask].values
         self._apply_selection()
 
@@ -129,15 +130,13 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         if len( self._wFind.value ) > 0:
             find_select = self._match_options['find_select']
             selection = self._current_selection if find_select=="select" else self._current_selection[:1]
+            print(f"apply_selection[ {find_select} ], nitems: {len(selection)}")
             self._current_table.change_selection( selection )
 
     def _process_find_options(self, name: str, state: str ):
         print( f"process_find_options[{name}]: {state}" )
         self._match_options[ name ] = state
-        if name == 'find_select':
-            self._apply_selection()
-        else:
-            self._process_find( dict( new=self._wFind.value ) )
+        self._process_find( dict( new=self._wFind.value ) )
 
     def _createTableTabs(self) -> widgets.Tab:
         wTab = widgets.Tab()
