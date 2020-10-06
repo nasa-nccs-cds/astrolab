@@ -27,24 +27,46 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         self._current_table: qgrid.QgridWidget = None
         self._current_selection: List[int] = []
         self._selection_listeners: List[Callable[[Dict],None]] = [ self._internal_listener ]
+        self._class_map = None
         self._search_widgets = None
         self._match_options = {}
 
     def init(self, **kwargs):
         catalog: Dict[str,np.ndarray] = kwargs.get( 'catalog', None )
-        if catalog is None:
-            project_data: xa.Dataset = DataManager.instance().loadCurrentProject()
-            table_cols = kwargs.get( 'cols', project_data.variables.keys() )
-            catalog = { tcol: project_data[tcol].values for tcol in table_cols }
-        self._dataFrame: pd.DataFrame = pd.DataFrame(catalog, dtype='U')
+        project_data: xa.Dataset = DataManager.instance().loadCurrentProject()
+        table_cols = kwargs.get('cols', project_data.variables.keys())
+        if catalog is None:  catalog = { tcol: project_data[tcol].values for tcol in table_cols }
+        nrows = catalog[table_cols[0]].shape[0]
+        self._dataFrame: pd.DataFrame = pd.DataFrame( catalog, dtype='U', index=pd.Int64Index( range(nrows), name="Index" ) )
         self._cols = list(catalog.keys())
+        self._class_map = np.zeros( nrows, np.int )
 
     def add_selection_listerner( self, listener: Callable[[Dict],None] ):
         self._selection_listeners.append( listener )
 
     def mark_selection(self):
         from .points import PointCloudManager
-        PointCloudManager.instance().mark_points( self._current_selection )
+        selection_table: pd.DataFrame = self._tables[0].df.loc[self._current_selection]
+        cid: int = PointCloudManager.instance().mark_points( selection_table.index )
+        self._class_map[self._current_selection] = cid
+        for table_index, table in enumerate( self._tables[1:] ):
+            if table_index+1 == cid:    table.df = pd.concat( [ table.df, selection_table ] ).drop_duplicates()
+            else:                       table.df = table.df.drop( index=self._current_selection, errors="ignore" )
+
+    def spread_selection(self):
+        from astrolab.graph.flow import ActivationFlowManager, ActivationFlow
+        from .points import PointCloudManager
+        project_dataset: xa.Dataset = DataManager.instance().loadCurrentProject()
+        catalog_pids = np.array( range(project_dataset.reduction.shape[0]) )
+        flow: ActivationFlow = ActivationFlowManager.instance().getActivationFlow( project_dataset.reduction )
+        if flow.spread(self._class_map, 1) is not None:
+            self._class_map = flow.C
+            for table_index, table in enumerate(self._tables[1:]):
+                cid = table_index + 1
+                new_indices = catalog_pids[ self._class_map == cid ]
+                selection_table: pd.DataFrame = self._tables[0].df.loc[ new_indices ]
+                table.df = pd.concat([table.df, selection_table]).drop_duplicates()
+                PointCloudManager.instance().mark_points( selection_table.index, cid )
 
     def _handle_table_event(self, event, widget):
         self._current_table = widget
@@ -56,9 +78,11 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
             itab_index = self._tables.index( widget )
             cname = LabelsManager.instance().labels[ itab_index ]
             selection_event = dict( classname=cname, **event )
-            new_pids = event["new"]
-            self._current_selection = new_pids
-            print(f"TABLE.selection_changed[{itab_index}:{cname}], nitems = {len(new_pids)}")
+            catalog = self._tables[0]
+            new_pids = [catalog.df.index[idx] for idx in event["new"]]
+            selection_event['pids'] = self._current_selection = new_pids
+            item_str = "" if len(new_pids) > 8 else f", rows={event['new']}, pids={new_pids}"
+            print(f"TABLE.selection_changed[{itab_index}:{cname}], nitems={len(new_pids)}{item_str}")
             for listener in self._selection_listeners:
                 listener( selection_event )
 
@@ -69,15 +93,15 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
     def _createTable( self, tab_index: int ) -> qgrid.QgridWidget:
         assert self._dataFrame is not None, " TableManager has not been initialized "
         col_opts = dict( editable=False )
-        grid_opts = dict( editable=False, minVisibleRows=25 )
+        grid_opts = dict( editable=False, maxVisibleRows=40 )
         if tab_index == 0:
             wTable = qgrid.show_grid( self._dataFrame.sort_values(self._cols[0] ), column_options=col_opts, grid_options=grid_opts, show_toolbar=False )
         else:
             empty_catalog = {col: np.empty( [0], 'U' ) for col in self._cols}
-            dFrame: pd.DataFrame = pd.DataFrame(empty_catalog, dtype='U')
+            dFrame: pd.DataFrame = pd.DataFrame(empty_catalog, dtype='U', index=pd.Int64Index( [], name="Index" ) )
             wTable = qgrid.show_grid( dFrame, column_options=col_opts, grid_options=grid_opts, show_toolbar=False )
         wTable.on( traitlets.All, self._handle_table_event )
-        wTable.layout = ipw.Layout( width= 'auto', height="auto" )
+        wTable.layout = ipw.Layout( width="auto", height="100%", max_height="1000px" )
         return wTable
 
     def _createGui( self ) -> widgets.VBox:
@@ -89,7 +113,9 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         self._wFind = widgets.Text( value='', placeholder='Find items', description='Find:', disabled=False, continuous_update = False, tooltip="Search in sorted column" )
         self._wFind.observe(self._process_find, 'value')
         wFindOptions = self._createFindOptionButtons()
-        return widgets.HBox( [ self._wFind, wFindOptions ], justify_content="center", width="auto" )
+        wSelectionPanel = widgets.HBox( [ self._wFind, wFindOptions ] )
+        wSelectionPanel.layout = ipw.Layout( justify_content = "center", align_items="center", width = "auto", height = "50px", min_height = "50px" )
+        return wSelectionPanel
 
     def _createFindOptionButtons(self):
         if self._search_widgets is None:
@@ -103,7 +129,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
                 self._match_options[ name ] = widget.state
 
         buttonbox =  widgets.HBox( [ w.gui() for w in self._search_widgets.values() ] )
-        buttonbox.layout.width = "120px"; buttonbox.layout.min_width = "120px"; buttonbox.layout.max_width = "120px"
+        buttonbox.layout = ipw.Layout( width = "300px", min_width = "300px", height = "100%" )
         return buttonbox
 
     def _process_find(self, event: Dict[str,str]):
@@ -143,7 +169,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         self._current_table = self._createTable( 0 )
         self._tables.append( self._current_table )
         wTab.set_title( 0, 'Catalog')
-        for iC, ctitle in enumerate( LabelsManager.instance().labels):
+        for iC, ctitle in enumerate( LabelsManager.instance().labels[1:] ):
             self._tables.append(  self._createTable( iC+1 ) )
             wTab.set_title( iC+1, ctitle )
         wTab.children = self._tables
@@ -153,6 +179,6 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         if self._wGui is None:
             self.init( **kwargs )
             self._wGui = self._createGui()
-            self._wGui.layout = ipw.Layout(width='auto', flex='4 0 800px')
+            self._wGui.layout = ipw.Layout(width='auto', flex='1 0 500px')
         return self._wGui
 

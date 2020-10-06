@@ -37,23 +37,26 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
         self._gui.point_sets = new_point_sets
 
     def on_selection(self, selection_event: Dict ):
-        selection = selection_event['new']
+        selection = selection_event['pids']
         self.update_markers(selection)
 
     def update_markers(self, pids: List[int]):
         self._marker_points[0] = self._embedding[ pids, : ]
-        print(f" POINTS.update_markers: n-markers = {self._marker_points[0].shape[0]}")
+        print( f"  ***** POINTS- mark_points[0], pids = {pids}")
         self.update_plot()
 
-    def mark_points(self, pids: List[int] ):
+    def mark_points(self, pids: List[int], cid: int = -1 ):
         from astrolab.gui.control import ControlPanel
         from astrolab.model.labels import LabelsManager
         ctrl = ControlPanel.instance()
+        icid = cid if cid > 0 else ctrl.current_cid
+        print( f"  ***** POINTS- mark_points[{icid}], pids = {pids}")
         print( f"Marked[{ctrl.current_cid}]: {pids}")
         self._marker_points[ 0 ] = self.empty_pointset
-        self._marker_points[ ctrl.current_cid ] = self._embedding[ pids ]
-        LabelsManager.instance().addMarker( Marker( pids, ctrl.current_class ) )
+        self._marker_points[ icid ] = self._embedding[ pids, : ]
+        LabelsManager.instance().addMarker( Marker( pids, icid ) )
         self.update_plot()
+        return ctrl.current_cid
 
     def configure(self, **kwargs ):
         width = kwargs.get( 'width', None )

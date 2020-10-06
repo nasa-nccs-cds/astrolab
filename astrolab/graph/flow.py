@@ -70,7 +70,7 @@ class ActivationFlowManager(tlc.SingletonConfigurable,AstroSingleton):
 
     def getActivationFlow( self, point_data: xa.DataArray, **kwargs ) -> Optional["ActivationFlow"]:
         if point_data is None: return None
-        dsid = point_data.attrs['dsid']
+        dsid = point_data.attrs.get('dsid','swift')
         print( f"Get Activation flow for dsid {dsid}")
         self.condition.acquire()
         try:
@@ -133,11 +133,7 @@ class ActivationFlow(object):
         nnd = NNDescent(nodes.values, n_trees=n_trees, n_iters=n_iters, n_neighbors=n_neighbors, max_candidates=60, verbose=True)
         return nnd
 
-    def spread( self, sample_labels: xa.DataArray, nIter: int = 1, **kwargs ) -> Optional[xa.Dataset]:
-        if self.D is None:
-#            Task.showMessage( "Awaiting task completion", "", "The NN graph computation has not yet finished", QMessageBox.Critical )
-            return None
-        sample_data = sample_labels.values
+    def spread( self, sample_data: np.ndarray, nIter: int = 1, **kwargs ) -> Optional[bool]:
         sample_mask = sample_data == 0
         if self.C is None or self.reset:
             self.C = sample_data
@@ -145,7 +141,7 @@ class ActivationFlow(object):
             self.C = np.where( sample_mask, self.C, sample_data )
         label_count = np.count_nonzero(self.C)
         if label_count == 0:
-#            Task.showMessage("Workflow violation", "", "Must label some points before this algorithm can be applied", QMessageBox.Critical )
+            print( "Workflow violation: Must label some points before this algorithm can be applied"  )
             return None
         if (self.P is None) or self.reset:   self.P = np.full( self.C.shape, float('inf'), dtype=np.float32 )
         self.P = np.where( sample_mask, self.P, 0.0 )
@@ -169,12 +165,8 @@ class ActivationFlow(object):
                 break
 
         t1 = time.time()
-        result_attrs = dict( converged=converged, **sample_labels.attrs )
-        result_attrs[ '_FillValue']=-2
-        xC: xa.DataArray =  xa.DataArray( self.C, dims=sample_labels.dims, coords=sample_labels.coords, attrs=result_attrs )
-        xP: xa.DataArray = xa.DataArray( self.P, dims=sample_labels.dims, coords=sample_labels.coords,  attrs=result_attrs )
-        print(f"Completed graph flow {nIter} iterations in {(t1 - t0)} sec, Class Range = [ {xC.min().values} -> {xC.max().values} ], #marked = {np.count_nonzero(xC.values)}")
+        print(f"Completed graph flow {nIter} iterations in {(t1 - t0)} sec, #marked = {np.count_nonzero(self.C)}")
         self.reset = False
-        return xa.Dataset( dict( C=xC, D=xP ) )
+        return converged
 
 

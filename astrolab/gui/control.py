@@ -32,25 +32,25 @@ class ControlPanel(tlc.SingletonConfigurable,AstroSingleton):
 
     def on_button_click( self, task, button: ipw.Button = None ):
         from .table import TableManager
-#        print( f" on_button_click: task = {task}" )
+        tmgr = TableManager.instance()
         if task == "embed": PointCloudManager.instance().reembed()
-        elif task == "mark": TableManager.instance().mark_selection()
+        elif task == "mark": tmgr.mark_selection()
+        elif task == "spread": tmgr.spread_selection()
 
     def _createGui( self, **kwargs ) -> ipw.Box:
         from astrolab.model.labels import LabelsManager
-        unclass = 'unclassified'
         for task in [ "embed", "mark", "spread", "clear", "reset" ]:
             button = ipw.Button( description=task )
             button.layout = ipw.Layout( width='auto', flex="1 0 auto" )
             button.on_click( partial( self.on_button_click, task ) )
             self._buttons[ task ] = button
-        classes = [unclass] + LabelsManager.instance().labels
-        self.wSelectedClass = ipw.RadioButtons( options=classes, value=unclass, description='Class:', tooltip="Set current class" )
-        self.wSelectedClass.layout = ipw.Layout( width = "auto", height = "220px", max_width = "500px", max_height = "500px" )
+        classes = LabelsManager.instance().labels
+        self.wSelectedClass = ipw.RadioButtons( options=classes, value=classes[0], description='Class:', tooltip="Set current class" )
+        self.wSelectedClass.layout = ipw.Layout( width = "auto", height = "auto" )
         buttonBox =  ipw.HBox( list(self._buttons.values()) )
         buttonBox.layout = ipw.Layout( width = "500px" )
-        gui = ipw.VBox( [buttonBox, self.wSelectedClass] ) # width = "auto",  flex='1 0 300px' )
-        gui.layout = ipw.Layout( width = "100%", height='100%' )
+        gui = ipw.VBox( [buttonBox, self.wSelectedClass] )
+        gui.layout = ipw.Layout( width = "100%", flex='0 0 200px' )
         return gui
 
     def embed(self):
