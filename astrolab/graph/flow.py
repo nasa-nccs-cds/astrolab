@@ -13,7 +13,7 @@ from astrolab.model.base import AstroSingleton
     locals={
         "selection": numba.boolean[:],
         "indices": numba.int32[:],
-        "labels": numba .int32[:],
+        "labels": numba.int32[:],
         "index_stack": numba.int32[:,:],
     },)
 def getFilteredLabels( labels: np.ndarray ) -> np.ndarray:

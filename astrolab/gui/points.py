@@ -42,20 +42,20 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
 
     def update_markers(self, pids: List[int]):
         self._marker_points[0] = self._embedding[ pids, : ]
-        print( f"  ***** POINTS- mark_points[0], pids = {pids}")
+        print( f"  ***** POINTS- mark_points[0], #pids = {len(pids)}")
         self.update_plot()
 
-    def mark_points(self, pids: List[int], cid: int = -1 ):
+    def mark_points(self, pids: List[int], cid: int = -1, update=False):
         from astrolab.gui.control import ControlPanel
         from astrolab.model.labels import LabelsManager
         ctrl = ControlPanel.instance()
         icid = cid if cid > 0 else ctrl.current_cid
-        print( f"  ***** POINTS- mark_points[{icid}], pids = {pids}")
-        print( f"Marked[{ctrl.current_cid}]: {pids}")
+        marked_points = self._embedding[ pids, : ]
+        print( f"  ***** POINTS- mark_points[{icid}], #pids = {len(pids)}, #points = {marked_points.shape[0]}")
         self._marker_points[ 0 ] = self.empty_pointset
-        self._marker_points[ icid ] = self._embedding[ pids, : ]
+        self._marker_points[ icid ] = marked_points
         LabelsManager.instance().addMarker( Marker( pids, icid ) )
-        self.update_plot()
+        if update: self.update_plot()
         return ctrl.current_cid
 
     def configure(self, **kwargs ):

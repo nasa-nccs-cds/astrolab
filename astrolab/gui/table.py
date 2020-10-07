@@ -39,7 +39,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         nrows = catalog[table_cols[0]].shape[0]
         self._dataFrame: pd.DataFrame = pd.DataFrame( catalog, dtype='U', index=pd.Int64Index( range(nrows), name="Index" ) )
         self._cols = list(catalog.keys())
-        self._class_map = np.zeros( nrows, np.int )
+        self._class_map = np.zeros( nrows, np.int32 )
 
     def add_selection_listerner( self, listener: Callable[[Dict],None] ):
         self._selection_listeners.append( listener )
@@ -47,7 +47,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
     def mark_selection(self):
         from .points import PointCloudManager
         selection_table: pd.DataFrame = self._tables[0].df.loc[self._current_selection]
-        cid: int = PointCloudManager.instance().mark_points( selection_table.index )
+        cid: int = PointCloudManager.instance().mark_points( selection_table.index, update=True )
         self._class_map[self._current_selection] = cid
         for table_index, table in enumerate( self._tables[1:] ):
             if table_index+1 == cid:    table.df = pd.concat( [ table.df, selection_table ] ).drop_duplicates()
@@ -57,16 +57,17 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         from astrolab.graph.flow import ActivationFlowManager, ActivationFlow
         from .points import PointCloudManager
         project_dataset: xa.Dataset = DataManager.instance().loadCurrentProject()
-        catalog_pids = np.array( range(project_dataset.reduction.shape[0]) )
+        catalog_pids = np.arange( 0, project_dataset.reduction.shape[0] )
         flow: ActivationFlow = ActivationFlowManager.instance().getActivationFlow( project_dataset.reduction )
         if flow.spread(self._class_map, 1) is not None:
             self._class_map = flow.C
-            for table_index, table in enumerate(self._tables[1:]):
-                cid = table_index + 1
-                new_indices = catalog_pids[ self._class_map == cid ]
-                selection_table: pd.DataFrame = self._tables[0].df.loc[ new_indices ]
-                table.df = pd.concat([table.df, selection_table]).drop_duplicates()
-                PointCloudManager.instance().mark_points( selection_table.index, cid )
+            for cid, table in enumerate( self._tables[1:], 1 ):
+                new_indices: np.ndarray = catalog_pids[ self._class_map == cid ]
+                if new_indices.size > 0:
+                    selection_table: pd.DataFrame = self._tables[0].df.loc[ new_indices ]
+                    table.df = pd.concat([table.df, selection_table]).drop_duplicates()
+                    PointCloudManager.instance().mark_points( selection_table.index, cid )
+            PointCloudManager.instance().update_plot()
 
     def _handle_table_event(self, event, widget):
         self._current_table = widget
@@ -78,8 +79,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
             itab_index = self._tables.index( widget )
             cname = LabelsManager.instance().labels[ itab_index ]
             selection_event = dict( classname=cname, **event )
-            catalog = self._tables[0]
-            new_pids = [catalog.df.index[idx] for idx in event["new"]]
+            new_pids = self._tables[0].df.index[ event["new"] ]  #  [catalog.df.index[idx] for idx in event["new"]]
             selection_event['pids'] = self._current_selection = new_pids
             item_str = "" if len(new_pids) > 8 else f", rows={event['new']}, pids={new_pids}"
             print(f"TABLE.selection_changed[{itab_index}:{cname}], nitems={len(new_pids)}{item_str}")
@@ -114,7 +114,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         self._wFind.observe(self._process_find, 'value')
         wFindOptions = self._createFindOptionButtons()
         wSelectionPanel = widgets.HBox( [ self._wFind, wFindOptions ] )
-        wSelectionPanel.layout = ipw.Layout( justify_content = "center", align_items="center", width = "auto", height = "50px", min_height = "50px" )
+        wSelectionPanel.layout = ipw.Layout( justify_content = "center", align_items="center", width = "auto", height = "50px", min_height = "50px", border_width=1, border_color="white" )
         return wSelectionPanel
 
     def _createFindOptionButtons(self):
@@ -129,7 +129,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
                 self._match_options[ name ] = widget.state
 
         buttonbox =  widgets.HBox( [ w.gui() for w in self._search_widgets.values() ] )
-        buttonbox.layout = ipw.Layout( width = "300px", min_width = "300px", height = "100%" )
+        buttonbox.layout = ipw.Layout( width = "300px", min_width = "300px", height = "auto" )
         return buttonbox
 
     def _process_find(self, event: Dict[str,str]):
