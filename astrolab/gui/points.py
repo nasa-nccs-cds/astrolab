@@ -13,7 +13,8 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
     def __init__(self, **kwargs):
         super(PointCloudManager, self).__init__(**kwargs)
         self._gui = None
-        self._marker_points = [ self.empty_pointset for ic in range( LabelsManager.instance().nLabels ) ]
+        self._embedding: np.ndarray = None
+        self._marker_points: List[np.ndarray] = [ self.empty_pointset for ic in range( LabelsManager.instance().nLabels ) ]
 
     @property
     def empty_pointset(self) -> np.ndarray:
@@ -32,8 +33,9 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
         print(f"PointCloudManager: completed embed in {time.time()-t0} sec")
 
     def update_plot( self, **kwargs ):
-        points = kwargs.get( 'points', self._embedding.values )
+        points = kwargs.get( 'points', self._embedding )
         new_point_sets = [ points ] + self._marker_points
+#        print( f"  ***** update_plot- new_point_set shapes = {[ps.shape for ps in new_point_sets]}" )
         self._gui.point_sets = new_point_sets
 
     def on_selection(self, selection_event: Dict ):
@@ -45,15 +47,15 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
         print( f"  ***** POINTS- mark_points[0], #pids = {len(pids)}")
         self.update_plot()
 
-    def mark_points(self, pids: List[int], cid: int = -1, update=False):
+    def mark_points(self, pids: np.ndarray, cid: int = -1, update=False):
         from astrolab.gui.control import ControlPanel
         from astrolab.model.labels import LabelsManager
-        ctrl = ControlPanel.instance()
-        icid = cid if cid > 0 else ctrl.current_cid
-        marked_points = self._embedding[ pids, : ]
+        ctrl: ControlPanel = ControlPanel.instance()
+        icid: int = cid if cid > 0 else ctrl.current_cid
+        marked_points: np.ndarray = self._embedding[ pids, : ]
         print( f"  ***** POINTS- mark_points[{icid}], #pids = {len(pids)}, #points = {marked_points.shape[0]}")
         self._marker_points[ 0 ] = self.empty_pointset
-        self._marker_points[ icid ] = marked_points
+        self._marker_points[ icid ] = np.concatenate(  [ self._marker_points[ icid ], marked_points ] )
         LabelsManager.instance().addMarker( Marker( pids, icid ) )
         if update: self.update_plot()
         return ctrl.current_cid
@@ -72,7 +74,7 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
 
     @property
     def point_sets(self):
-        return [ self._embedding.values ] + self._marker_points
+        return [ self._embedding ] + self._marker_points
 
     def gui(self, **kwargs ):
         if self._gui is None:

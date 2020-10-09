@@ -1,28 +1,29 @@
 import traitlets.config as tlc
 from collections import OrderedDict
+import numpy as np
 from typing import List, Union, Dict, Callable, Tuple, Optional, Any
 import traitlets as tl
 
 class Marker:
-    def __init__(self,  pids: List[int], cid: int ):
+    def __init__(self,  pids: np.ndarray, cid: int ):
         self.cid = cid
-        self.pids = set(pids)
+        self.pids = np.unique( pids )
 
     def isTransient(self):
         return self.cid == 0
 
     def isEmpty(self):
-        return len( self.pids ) == 0
+        return self.pids.size == 0
 
     def deletePid( self, pid: int ) -> bool:
         try:
-            self.pids.remove( pid )
+            self.pids = self.pids[ self.pids != pid ]
             return True
         except: return False
 
-    def deletePids( self, pids: List[int] ) -> bool:
+    def deletePids( self, dpids: np.ndarray ) -> bool:
         try:
-            self.pids -= set( pids )
+            self.pids = np.setdiff1d( self.pids, dpids )
             return True
         except: return False
 

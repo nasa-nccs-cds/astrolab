@@ -85,7 +85,7 @@ class ReductionManager(tlc.SingletonConfigurable,AstroSingleton):
         autoencoder.fit( encoder_input, encoder_input, epochs=epochs, batch_size=256, shuffle=True )
         return  encoder.predict( encoder_input )
 
-    def umap_init( self,  point_data: xa.DataArray, **kwargs ) -> Optional[xa.DataArray]:
+    def umap_init( self,  point_data: xa.DataArray, **kwargs ) -> Optional[np.ndarray]:
         self._state = self.NEW_DATA
         self._dsid = point_data.attrs['dsid']
         LabelsManager.instance().initLabelsData(point_data)
@@ -100,9 +100,9 @@ class ReductionManager(tlc.SingletonConfigurable,AstroSingleton):
             kwargs['nepochs'] = 1
             labels_data: np.ndarray = LabelsManager.instance().labels_data().values
             mapper.embed( mapper.input_data, mapper.flow.nnd, labels_data, **kwargs)
-        return self.wrap_embedding( mapper.scoord, mapper.embedding)
+        return mapper.embedding
 
-    def umap_embedding( self, **kwargs ) -> Optional[xa.DataArray]:
+    def umap_embedding( self, **kwargs ) -> Optional[np.ndarray]:
         mapper: UMAP = self.getUMapper(self._dsid, self.ndim)
         if 'nepochs' not in kwargs.keys():   kwargs['nepochs'] = self.nepochs
         if 'alpha' not in kwargs.keys():   kwargs['alpha'] = self.alpha
@@ -111,7 +111,12 @@ class ReductionManager(tlc.SingletonConfigurable,AstroSingleton):
         mapper.clear_initialization()
         mapper.init = mapper.embedding
         mapper.embed( mapper.input_data, mapper.flow.nnd, labels_data, **kwargs )
-        return self.wrap_embedding( mapper.scoord, mapper.embedding)
+        return mapper.embedding
+
+    def xa_umap_embedding( self, **kwargs ) -> Optional[xa.DataArray]:
+        mapper: UMAP = self.getUMapper(self._dsid, self.ndim)
+        if mapper.embedding is None: self.umap_embedding( **kwargs )
+        return None if mapper.embedding is None else self.wrap_embedding( mapper.scoord, mapper.embedding, **kwargs )
 
     def wrap_embedding(self, ax_samples: xa.DataArray, embedding: np.ndarray, **kwargs )-> xa.DataArray:
         ax_model = np.arange( embedding.shape[1] )
