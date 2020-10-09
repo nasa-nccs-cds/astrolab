@@ -34,7 +34,7 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
 
     def update_plot( self, **kwargs ):
         points = kwargs.get( 'points', self._embedding )
-        new_point_sets = [ points ] + self._marker_points
+        new_point_sets = [ points ] + self._marker_points[::-1]
 #        print( f"  ***** update_plot- new_point_set shapes = {[ps.shape for ps in new_point_sets]}" )
         self._gui.point_sets = new_point_sets
 
@@ -74,12 +74,12 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
 
     @property
     def point_sets(self):
-        return [ self._embedding ] + self._marker_points
+        return [ self._embedding ] + self._marker_points[::-1]
 
     def gui(self, **kwargs ):
         if self._gui is None:
             self.init_data()
-            ptcolors = [ [1.0, 1.0, 1.0, 1.0], ] + LabelsManager.instance().colors
+            ptcolors = [ [1.0, 1.0, 1.0, 1.0], ] + LabelsManager.instance().colors[::-1]
             ptsizes = [1] + [8]*LabelsManager.instance().nLabels
             self._gui = view( point_sets = self.point_sets, point_set_sizes=ptsizes, point_set_colors=ptcolors, background=[0,0,0] )
             self._gui.layout = { 'width': 'auto', 'flex': '1 1 auto' }

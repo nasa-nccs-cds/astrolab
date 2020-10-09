@@ -53,9 +53,9 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         self._class_map[self._current_selection] = cid
         for table_index, table in enumerate( self._tables ):
             if table_index == 0:
-                index_array: np.ndarray = selection_table.index.to_numpy()
-                print( f" -----> Setting cid[{cid}] for indices={index_array.tolist()[:10]}")
-                table.df.loc[ index_array, "Class" ] = cid
+                index_list: List[int] = selection_table.index.tolist()
+                print( f" -----> Setting cid[{cid}] for indices= {index_list[:10]}... ")
+                table.edit_cell( index_list, "Class", cid )
             else:
                 if table_index == cid:    table.df = pd.concat( [ table.df, selection_table ] ).drop_duplicates()
                 else:                     table.df = table.df.drop( index=self._current_selection, errors="ignore" )
@@ -88,16 +88,21 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
                 if len( rows ) == 1 or self.is_block_selection(event):
                     print( f"_handle_table_event: {event}" )
                     self._current_selection = self._tables[0].df.index[ rows ].to_list()
-                    self.broadcast_selection_event( self._current_selection )
+                    self.broadcast_selection_event( self._current_selection, rows )
 
     def is_block_selection( self, event: Dict ) -> bool:
-#        print( f" ------------> is_block_selection: {event} ------------------------" )
+        print( f" ------------> is_block_selection: {event} ------------------------" )
         old, new = event['old'], event['new']
-        return (len(old) == 1) and (new[-1] == old[0]) and ( len(new) == (new[-2]-new[-1]+1))
+        if (len(old) == 1) and (new[-1] == old[ 0]) and ( len(new) == (new[-2]-new[-1]+1)): return True
+        if (len(old) >  1) and (new[-1] == old[-1]) and ( len(new) == (new[-2]-new[-1]+1)): return True
+        return False
 
+    def is_block_selection1( self, event: Dict ) -> bool:
+        row_list = event['new'].sort()
+        return row_list == list( range( row_list[0], row_list[-1]+1 ) )
 
-    def broadcast_selection_event(self, pids: List[int] ):
-        selection_event = dict( pids=pids )
+    def broadcast_selection_event(self, pids: List[int], rows: List[int] ):
+        selection_event = dict( pids=pids, new=rows )
         item_str = "" if len(pids) > 8 else f",  pids={pids}"
         print(f"TABLE.gui->selection_changed, nitems={len(pids)}{item_str}")
         for listener in self._selection_listeners:
@@ -105,8 +110,8 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
 
     def _createTable( self, tab_index: int ) -> qgrid.QgridWidget:
         assert self._dataFrame is not None, " TableManager has not been initialized "
-        col_opts = dict( ) # editable=False,for indices=
-        grid_opts = dict(  maxVisibleRows=40 ) # editable=False,
+        col_opts = dict( editable=False ) #
+        grid_opts = dict(  editable=False, maxVisibleRows=40 )
         if tab_index == 0:
             data_table = self._dataFrame.sort_values(self._cols[0] )
             data_table.insert( len(self._cols), "Class", 0, True )
@@ -164,20 +169,21 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         else: raise Exception( f"Unrecognized match option: {match}")
         print( f"process_find[ M:{match} CS:{case_sensitive} CI:{self._current_column_index} ], coldata shape = {np_coldata.shape}" )
         self._current_selection = df.index[mask].to_list()
-        print(f" --> cname = {cname}, mask shape = {mask.shape}, mask #nonzero = {np.count_nonzero(mask)}, #selected = {len(self._current_selection)}")
-        self._select_find_results()
+        rows = np.arange(0,np_coldata.size)[mask].to_list()
+        print(f" --> cname = {cname}, mask shape = {mask.shape}, mask #nonzero = {np.count_nonzero(mask)}, #selected = {len(self._current_selection)}, #rows = {len(rows)}")
+        self._select_find_results( rows )
 
     def _clear_selection(self):
         self._current_selection = []
         self._wFind.value = ""
 
-    def _select_find_results(self):
+    def _select_find_results(self, rows: List[int]):
         if len( self._wFind.value ) > 0:
             find_select = self._match_options['find_select']
             selection = self._current_selection if find_select=="select" else self._current_selection[:1]
             print(f"apply_selection[ {find_select} ], nitems: {len(selection)}")
             self._current_table.change_selection( selection )
-            self.broadcast_selection_event( selection )
+            self.broadcast_selection_event( selection, rows )
 
     def _process_find_options(self, name: str, state: str ):
         print( f"process_find_options[{name}]: {state}" )

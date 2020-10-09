@@ -85,5 +85,5 @@ class GraphManager(tlc.SingletonConfigurable,AstroSingleton):
     def on_selection(self, selection_event: Dict ):
         selection = selection_event['pids']
         if len( selection ) > 0:
-            print(f" GRAPH.on_selection: nitems = {len(selection)}")
+            print(f" GRAPH.on_selection: nitems = {len(selection)}, pid={selection[0]}")
             self.plot_graph( selection[0] )
