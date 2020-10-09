@@ -40,7 +40,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         if catalog is None:  catalog = { tcol: project_data[tcol].values for tcol in table_cols }
         nrows = catalog[table_cols[0]].shape[0]
         self._dataFrame: pd.DataFrame = pd.DataFrame( catalog, dtype='U', index=pd.Int64Index( range(nrows), name="Index" ) )
-        self._cols = list(catalog.keys())
+        self._cols = list(catalog.keys()) + [ "Class" ]
         self._class_map = np.zeros( nrows, np.int32 )
 
     def add_selection_listerner( self, listener: Callable[[Dict],None] ):
@@ -80,13 +80,16 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         self._current_table = widget
         ename = event['name']
         if( ename == 'sort_changed'):
-            self._current_column_index = self._cols.index( event['new']['column'] )
+            cname = event['new']['column']
+            print(f"  handle_table_event: {ename}[{cname}]: {self._cols}")
+            self._current_column_index = self._cols.index( cname )
+            print(f"  ... col-sel ---> ci={self._current_column_index}")
             self._clear_selection()
         elif (ename == 'selection_changed'):
             if event['source'] == 'gui':
                 rows = event["new"]
                 if len( rows ) == 1 or self.is_block_selection(event):
-                    print( f"_handle_table_event: {event}" )
+                    print( f" TABLE.row-sel --->  {rows}" )
                     self._current_selection = self._tables[0].df.index[ rows ].to_list()
                     self.broadcast_selection_event( self._current_selection, rows )
 
@@ -114,7 +117,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         grid_opts = dict(  editable=False, maxVisibleRows=40 )
         if tab_index == 0:
             data_table = self._dataFrame.sort_values(self._cols[0] )
-            data_table.insert( len(self._cols), "Class", 0, True )
+            data_table.insert( len(self._cols)-1, "Class", 0, True )
             wTable = qgrid.show_grid( data_table, column_options=col_opts, grid_options=grid_opts, show_toolbar=False )
         else:
             empty_catalog = {col: np.empty( [0], 'U' ) for col in self._cols}
@@ -122,9 +125,9 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
             wTable = qgrid.show_grid( dFrame, column_options=col_opts, grid_options=grid_opts, show_toolbar=False )
         wTable.on( traitlets.All, self._handle_table_event )
         wTable.layout = ipw.Layout( width="auto", height="100%", max_height="1000px" )
-        events = Event(source=wTable, watched_events=['keyup', 'keydown'])
-        events.on_dom_event(self._handle_key_event)
-        self._events.append( events )
+#        events = Event(source=wTable, watched_events=['keyup', 'keydown'])
+#        events.on_dom_event(self._handle_key_event)
+#        self._events.append( events )
         return wTable
 
     def _createGui( self ) -> widgets.VBox:
@@ -169,8 +172,8 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         else: raise Exception( f"Unrecognized match option: {match}")
         print( f"process_find[ M:{match} CS:{case_sensitive} CI:{self._current_column_index} ], coldata shape = {np_coldata.shape}" )
         self._current_selection = df.index[mask].to_list()
-        rows = np.arange(0,np_coldata.size)[mask].to_list()
-        print(f" --> cname = {cname}, mask shape = {mask.shape}, mask #nonzero = {np.count_nonzero(mask)}, #selected = {len(self._current_selection)}, #rows = {len(rows)}")
+        rows = np.arange(0,np_coldata.size)[mask].tolist()
+        print(f" --> cname = {cname}, mask shape = {mask.shape}, mask #nonzero = {np.count_nonzero(mask)}, #selected = {len(self._current_selection)}, rows[:8] = {rows[:8]}")
         self._select_find_results( rows )
 
     def _clear_selection(self):
