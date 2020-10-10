@@ -164,7 +164,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
     def _process_find(self, event: Dict[str,str]):
         match = self._match_options['match']
         case_sensitive = ( self._match_options['case_sensitive'] == "true" )
-        df: pd.DataFrame = self._current_table.df   # .get_changed_df()
+        df: pd.DataFrame = self._current_table.get_changed_df()
         cname = self._cols[ self._current_column_index ]
         np_coldata = df[cname].to_numpy( dtype='U' )
         if not case_sensitive: np_coldata = np.char.lower( np_coldata )
@@ -173,7 +173,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         elif match == "ends-with":   mask = np.char.endswith( np_coldata, match_str )
         elif match == "contains":    mask = ( np.char.find( np_coldata, match_str ) >= 0 )
         else: raise Exception( f"Unrecognized match option: {match}")
-        print( f"process_find[ M:{match} CS:{case_sensitive} CI:{self._current_column_index} ], coldata shape = {np_coldata.shape}, match_str={match_str}" )
+        print( f"process_find[ M:{match} CS:{case_sensitive} CI:{self._current_column_index} ], coldata shape = {np_coldata.shape}, match_str={match_str}, coldata[:10]={np_coldata[:10]}" )
         self._current_selection = df.index[mask].to_list()
         rows = np.arange(0,np_coldata.size)[mask].tolist()
         print(f" --> cname = {cname}, mask shape = {mask.shape}, mask #nonzero = {np.count_nonzero(mask)}, #selected = {len(self._current_selection)}, rows[:8] = {rows[:8]}")
