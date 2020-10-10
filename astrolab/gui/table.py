@@ -90,7 +90,10 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
                 rows = event["new"]
                 if len( rows ) == 1 or self.is_block_selection(event):
                     print( f" TABLE.row-sel --->  {rows}" )
-                    self._current_selection = self._tables[0].df.index[ rows ].to_list()
+                    df = self._tables[0].get_changed_df()
+#                    print( f" TABLE[0].row-index[:10] --->  {df.index[:10].to_list()}")
+                    self._current_selection = df.index[ rows ].to_list()
+#                    print( f" TABLE[0].current_selection[:10] --->  {self._current_selection[:10]}")
                     self.broadcast_selection_event( self._current_selection, rows )
 
     def is_block_selection( self, event: Dict ) -> bool:
@@ -170,7 +173,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         elif match == "ends-with":   mask = np.char.endswith( np_coldata, match_str )
         elif match == "contains":    mask = ( np.char.find( np_coldata, match_str ) >= 0 )
         else: raise Exception( f"Unrecognized match option: {match}")
-        print( f"process_find[ M:{match} CS:{case_sensitive} CI:{self._current_column_index} ], coldata shape = {np_coldata.shape}" )
+        print( f"process_find[ M:{match} CS:{case_sensitive} CI:{self._current_column_index} ], coldata shape = {np_coldata.shape}, match_str={match_str}" )
         self._current_selection = df.index[mask].to_list()
         rows = np.arange(0,np_coldata.size)[mask].tolist()
         print(f" --> cname = {cname}, mask shape = {mask.shape}, mask #nonzero = {np.count_nonzero(mask)}, #selected = {len(self._current_selection)}, rows[:8] = {rows[:8]}")
