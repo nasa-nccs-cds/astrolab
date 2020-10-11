@@ -25,7 +25,6 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         self._tables: List[qgrid.QgridWidget] = []
         self._wTablesWidget: widgets.Tab = None
         self._current_column_index: int = 0
-        self._current_table: qgrid.QgridWidget = None
         self._current_selection: List[int] = []
         self._selection_listeners: List[Callable[[Dict],None]] = [ ]
         self._class_map = None
@@ -64,6 +63,10 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
     def selected_class(self):
         return int( self._wTablesWidget.selected_index )
 
+    @property
+    def selected_table(self):
+        return self._tables[ self.selected_class ]
+
     def spread_selection(self):
         from astrolab.graph.flow import ActivationFlowManager, ActivationFlow
         from .points import PointCloudManager
@@ -74,7 +77,6 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         if flow.spread(self._class_map, 1) is not None:
             self._class_map = flow.C
             all_classes = (self.selected_class == 0)
-            print( f"spread_selection: all_classes = {all_classes}, selected_class = {self.selected_class}")
             for cid, table in enumerate( self._tables[1:], 1 ):
                 if all_classes or (self.selected_class == cid):
                     new_indices: np.ndarray = catalog_pids[ self._class_map == cid ]
@@ -84,8 +86,23 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
                         PointCloudManager.instance().mark_points( selection_table.index.to_numpy(), cid )
             PointCloudManager.instance().update_plot()
 
+    def undo_selection(self):
+        pass
+
+    def clear_selection(self):
+        from .points import PointCloudManager
+        all_classes = (self.selected_class == 0)
+        self._tables[0].change_selection([])
+        for cid, table in enumerate( self._tables[1:], 1 ):
+            if all_classes or (self.selected_class == cid):
+                pids = table.df.index.tolist()
+                if len( pids ) > 0:
+                    PointCloudManager.instance().clear_points( cid )
+                    table.remove_rows( pids )
+                    table.df.drop( axis=0, inplace=True )
+            PointCloudManager.instance().update_plot()
+
     def _handle_table_event(self, event, widget):
-        self._current_table = widget
         ename = event['name']
         if( ename == 'sort_changed'):
             cname = event['new']['column']
@@ -102,7 +119,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
 #                    print( f" TABLE[0].row-index[:10] --->  {df.index[:10].to_list()}")
                     self._current_selection = df.index[ rows ].to_list()
 #                    print( f" TABLE[0].current_selection[:10] --->  {self._current_selection[:10]}")
-                    self.broadcast_selection_event( self._current_selection, rows )
+                    self.broadcast_selection_event( self._current_selection )
 
     def is_block_selection( self, event: Dict ) -> bool:
         old, new = event['old'], event['new']
@@ -171,7 +188,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
     def _process_find(self, event: Dict[str,str]):
         match = self._match_options['match']
         case_sensitive = ( self._match_options['case_sensitive'] == "true" )
-        df: pd.DataFrame = self._current_table.get_changed_df()
+        df: pd.DataFrame = self.selected_table.get_changed_df()
         cname = self._cols[ self._current_column_index ]
         np_coldata = df[cname].to_numpy( dtype='U' )
         if not case_sensitive: np_coldata = np.char.lower( np_coldata )
@@ -180,9 +197,9 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         elif match == "ends-with":   mask = np.char.endswith( np_coldata, match_str )
         elif match == "contains":    mask = ( np.char.find( np_coldata, match_str ) >= 0 )
         else: raise Exception( f"Unrecognized match option: {match}")
-        print( f"process_find[ M:{match} CS:{case_sensitive} CI:{self._current_column_index} ], coldata shape = {np_coldata.shape}, match_str={match_str}, coldata[:10]={np_coldata[:10]}" )
+        print( f"process_find[ M:{match} CS:{case_sensitive} col:{self._current_column_index} ], coldata shape = {np_coldata.shape}, match_str={match_str}, coldata[:10]={np_coldata[:10]}" )
         self._current_selection = df.index[mask].to_list()
-#        print(f" --> cname = {cname}, mask shape = {mask.shape}, mask #nonzero = {np.count_nonzero(mask)}, #selected = {len(self._current_selection)}, selection[:8] = {self._current_selection[:8]}")
+        print(f" --> cname = {cname}, mask shape = {mask.shape}, mask #nonzero = {np.count_nonzero(mask)}, #selected = {len(self._current_selection)}, selection[:8] = {self._current_selection[:8]}")
         self._select_find_results( )
 
     def _clear_selection(self):
@@ -194,7 +211,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
             find_select = self._match_options['find_select']
             selection = self._current_selection if find_select=="select" else self._current_selection[:1]
             print(f"apply_selection[ {find_select} ], nitems: {len(selection)}")
-            self._current_table.change_selection( selection )
+            self.selected_table.change_selection( selection )
             self.broadcast_selection_event( selection )
 
     def _process_find_options(self, name: str, state: str ):
@@ -204,12 +221,11 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
 
     def _createTableTabs(self) -> widgets.Tab:
         wTab = widgets.Tab()
-        self._current_table = self._createTable( 0 )
-        self._tables.append( self._current_table )
+        self._tables.append( self._createTable( 0 ))
         wTab.set_title( 0, 'Catalog')
-        for iC, ctitle in enumerate( LabelsManager.instance().labels[1:] ):
-            self._tables.append(  self._createTable( iC+1 ) )
-            wTab.set_title( iC+1, ctitle )
+        for iC, ctitle in enumerate( LabelsManager.instance().labels[1:], 1 ):
+            self._tables.append(  self._createTable( iC ) )
+            wTab.set_title( iC, ctitle )
         wTab.children = self._tables
         return wTab
 

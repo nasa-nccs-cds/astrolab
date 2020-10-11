@@ -60,6 +60,10 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
         if update: self.update_plot()
         return ctrl.current_cid
 
+    def clear_points(self, icid: int, update=False):
+        self._marker_points[icid] = self.empty_pointset
+        if update: self.update_plot()
+
     def configure(self, **kwargs ):
         width = kwargs.get( 'width', None )
         height = kwargs.get( 'height', None )

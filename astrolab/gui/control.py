@@ -33,9 +33,11 @@ class ControlPanel(tlc.SingletonConfigurable,AstroSingleton):
     def on_button_click( self, task, button: ipw.Button = None ):
         from .table import TableManager
         tmgr = TableManager.instance()
-        if task == "embed": PointCloudManager.instance().reembed()
-        elif task == "mark": tmgr.mark_selection()
+        if task ==   "embed":  PointCloudManager.instance().reembed()
+        elif task == "mark":   tmgr.mark_selection()
         elif task == "spread": tmgr.spread_selection()
+        elif task == "clear":  tmgr.clear_selection()
+        elif task == "undo":   tmgr.undo_selection()
 
     def _createGui( self, **kwargs ) -> ipw.Box:
         from astrolab.model.labels import LabelsManager
