@@ -39,7 +39,7 @@ class ControlPanel(tlc.SingletonConfigurable,AstroSingleton):
 
     def _createGui( self, **kwargs ) -> ipw.Box:
         from astrolab.model.labels import LabelsManager
-        for task in [ "embed", "mark", "spread", "clear", "reset" ]:
+        for task in [ "embed", "mark", "spread", "undo", "clear" ]:
             button = ipw.Button( description=task )
             button.layout = ipw.Layout( width='auto', flex="1 0 auto" )
             button.on_click( partial( self.on_button_click, task ) )

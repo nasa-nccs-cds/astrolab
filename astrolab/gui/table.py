@@ -60,20 +60,28 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
                 if table_index == cid:    table.df = pd.concat( [ table.df, selection_table ] ).drop_duplicates()
                 else:                     table.df = table.df.drop( index=self._current_selection, errors="ignore" )
 
+    @property
+    def selected_class(self):
+        return int( self._wTablesWidget.selected_index )
+
     def spread_selection(self):
         from astrolab.graph.flow import ActivationFlowManager, ActivationFlow
         from .points import PointCloudManager
         project_dataset: xa.Dataset = DataManager.instance().loadCurrentProject()
         catalog_pids = np.arange( 0, project_dataset.reduction.shape[0] )
         flow: ActivationFlow = ActivationFlowManager.instance().getActivationFlow( project_dataset.reduction )
+
         if flow.spread(self._class_map, 1) is not None:
             self._class_map = flow.C
+            all_classes = (self.selected_class == 0)
+            print( f"spread_selection: all_classes = {all_classes}, selected_class = {self.selected_class}")
             for cid, table in enumerate( self._tables[1:], 1 ):
-                new_indices: np.ndarray = catalog_pids[ self._class_map == cid ]
-                if new_indices.size > 0:
-                    selection_table: pd.DataFrame = self._tables[0].df.loc[ new_indices ]
-                    table.df = pd.concat([table.df, selection_table]).drop_duplicates()
-                    PointCloudManager.instance().mark_points( selection_table.index.to_numpy(), cid )
+                if all_classes or (self.selected_class == cid):
+                    new_indices: np.ndarray = catalog_pids[ self._class_map == cid ]
+                    if new_indices.size > 0:
+                        selection_table: pd.DataFrame = self._tables[0].df.loc[ new_indices ]
+                        table.df = pd.concat([table.df, selection_table]).drop_duplicates()
+                        PointCloudManager.instance().mark_points( selection_table.index.to_numpy(), cid )
             PointCloudManager.instance().update_plot()
 
     def _handle_table_event(self, event, widget):
@@ -97,7 +105,6 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
                     self.broadcast_selection_event( self._current_selection, rows )
 
     def is_block_selection( self, event: Dict ) -> bool:
-        print( f" ------------> is_block_selection: {event} ------------------------" )
         old, new = event['old'], event['new']
         if (len(old) == 1) and (new[-1] == old[ 0]) and ( len(new) == (new[-2]-new[-1]+1)): return True
         if (len(old) >  1) and (new[-1] == old[-1]) and ( len(new) == (new[-2]-new[-1]+1)): return True
