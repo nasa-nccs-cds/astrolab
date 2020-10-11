@@ -107,8 +107,8 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         row_list = event['new'].sort()
         return row_list == list( range( row_list[0], row_list[-1]+1 ) )
 
-    def broadcast_selection_event(self, pids: List[int], rows: List[int] ):
-        selection_event = dict( pids=pids, new=rows )
+    def broadcast_selection_event(self, pids: List[int] ):
+        selection_event = dict( pids=pids )
         item_str = "" if len(pids) > 8 else f",  pids={pids}"
         print(f"TABLE.gui->selection_changed, nitems={len(pids)}{item_str}")
         for listener in self._selection_listeners:
@@ -175,21 +175,20 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         else: raise Exception( f"Unrecognized match option: {match}")
         print( f"process_find[ M:{match} CS:{case_sensitive} CI:{self._current_column_index} ], coldata shape = {np_coldata.shape}, match_str={match_str}, coldata[:10]={np_coldata[:10]}" )
         self._current_selection = df.index[mask].to_list()
-        rows = np.arange(0,np_coldata.size)[mask].tolist()
-        print(f" --> cname = {cname}, mask shape = {mask.shape}, mask #nonzero = {np.count_nonzero(mask)}, #selected = {len(self._current_selection)}, rows[:8] = {rows[:8]}")
-        self._select_find_results( rows )
+#        print(f" --> cname = {cname}, mask shape = {mask.shape}, mask #nonzero = {np.count_nonzero(mask)}, #selected = {len(self._current_selection)}, selection[:8] = {self._current_selection[:8]}")
+        self._select_find_results( )
 
     def _clear_selection(self):
         self._current_selection = []
         self._wFind.value = ""
 
-    def _select_find_results(self, rows: List[int]):
+    def _select_find_results(self ):
         if len( self._wFind.value ) > 0:
             find_select = self._match_options['find_select']
             selection = self._current_selection if find_select=="select" else self._current_selection[:1]
             print(f"apply_selection[ {find_select} ], nitems: {len(selection)}")
             self._current_table.change_selection( selection )
-            self.broadcast_selection_event( selection, rows )
+            self.broadcast_selection_event( selection )
 
     def _process_find_options(self, name: str, state: str ):
         print( f"process_find_options[{name}]: {state}" )
