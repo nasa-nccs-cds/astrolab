@@ -87,17 +87,21 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
             PointCloudManager.instance().update_plot()
 
     def undo_selection(self):
-        pass
+        from astrolab.model.base import Marker
+        marker: Marker = LabelsManager.instance().popMarker()
+        self._selected_class = marker.cid
+        self._current_selection = marker.pids
+        self.clear_selection( True )
 
-    def clear_selection(self):
+    def clear_selection(self, current_only = False ):
         from .points import PointCloudManager
         all_classes = (self.selected_class == 0)
         self._tables[0].change_selection([])
         for cid, table in enumerate( self._tables[1:], 1 ):
             if all_classes or (self.selected_class == cid):
-                pids = table.df.index.tolist()
+                pids = self._current_selection if current_only else table.df.index.tolist()
                 if len( pids ) > 0:
-                    PointCloudManager.instance().clear_points( cid )
+                    PointCloudManager.instance().clear_points( cid, pids=(pids if current_only else None) )
                     table.remove_rows( pids )
                     table.df.drop( index=pids, inplace=True )
             PointCloudManager.instance().update_plot()

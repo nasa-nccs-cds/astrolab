@@ -91,8 +91,6 @@ class LabelsManager(tlc.SingletonConfigurable,AstroSingleton):
         action = self.popAction()
         if action is not None:
             self.processAction( action )
-            event = dict( event="gui", type="undo", **action.spec )
-            self.submitEvent(event)
 
     def processAction(self, action: Action ):
         remaining_markers = []
@@ -169,8 +167,6 @@ class LabelsManager(tlc.SingletonConfigurable,AstroSingleton):
 
     def popMarker(self) -> Marker:
         marker = self._markers.pop( -1 ) if len( self._markers ) else None
-        event = dict( event="gui", type="undo", marker=marker )
-        self.submitEvent( event )
         return marker
 
     def deletePid(self, pid: int ) -> List[Marker]:

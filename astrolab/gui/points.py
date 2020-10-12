@@ -60,8 +60,11 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
         if update: self.update_plot()
         return ctrl.current_cid
 
-    def clear_points(self, icid: int, update=False):
-        self._marker_points[icid] = self.empty_pointset
+    def clear_points(self, icid: int, **kwargs ):
+        update = kwargs.get( 'update', False )
+        pids = kwargs.get('pids', None )
+        if pids is None: self._marker_points[icid] = self.empty_pointset
+        else: self._marker_points[icid]  = np.delete( self._marker_points[icid], np.where(self._marker_points[icid] in pids) )
         if update: self.update_plot()
 
     def configure(self, **kwargs ):
