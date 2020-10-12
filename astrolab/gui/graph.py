@@ -1,11 +1,13 @@
 from bokeh.plotting import figure
 from bokeh.io import output_notebook
 import jupyter_bokeh as jbk
+from bokeh.transform import linear_cmap
 import ipywidgets as ip
 from typing import List, Union, Tuple, Optional, Dict, Callable
 import xarray as xa
 import numpy as np
 from astrolab.data.manager import DataManager
+from bokeh.models import ColumnDataSource
 import ipywidgets as widgets
 import traitlets.config as tlc
 from astrolab.model.base import AstroSingleton
@@ -14,9 +16,14 @@ class JbkGraph:
 
     def __init__( self, **kwargs ):
         self.init_data(**kwargs)
-        self._item_index = 0
-        self.fig = figure( title=self.title, height=300, width=1000,  y_range=[self.y.min(),self.y.max()], background_fill_color='#efefef' )
-        self._r = self.fig.line( self.x, self.y, color="#8888cc", line_width=1.5, alpha=0.8)
+        self._selected_pids: List[int] = [0]
+        self._source = ColumnDataSource(data=dict(
+            xs=self.x,  # x coords for each line (list of lists)
+            ys=self.y,  # y coords for each line (list of lists)
+            cmap=[1]  # data to use for colormapping
+        ))
+        self.fig = figure( title=self.title, height=300, width=1000, background_fill_color='#efefef' )
+        self._r = self.fig.multi_line( 'xs', 'ys', source=self._source, line_color=linear_cmap('cmap', "Turbo256", 0, 255), line_width=1.5, alpha=0.8 )
         self._model = jbk.BokehModel( self.fig, layout = ip.Layout( width= 'auto', height= 'auto' ) )
         print( f"BokehModel: {self._model.keys}" )
 
@@ -32,26 +39,35 @@ class JbkGraph:
             cls._ploty: np.ndarray = project_data["plot-y"].values
             cls._mdata: List[np.ndarray] = [ project_data[mdv].values for mdv in kwargs.get("mdata", []) ]
 
-    def select_item(self, index: int ):
-        self._item_index = index
+    def select_items(self, idxs: List[int] ):
+        self._selected_pids = idxs
 
     def plot(self):
-        x, y = self.x, self.y
+        y, yr = self.y, self.yrange
+        nlines = len(y)
         self.fig.title.text = self.title
-        self._r.data_source.data['y'] =  y
-        self.fig.y_range.update( start=y.min(), end=y.max() )
+        self._source.data.update( ys = y, xs=self.x, cmap = np.random.randint(0,255,nlines) )
+        self.fig.y_range.update( start=yr[0], end=yr[1] )
 
     @property
-    def x(self) -> np.ndarray:
-        return self._x
+    def x(self) -> List[ np.ndarray ]:
+        return [ self._x ] * len( self._selected_pids )
 
     @property
-    def y(self) -> np.ndarray:
-        return self._ploty[self._item_index]
+    def y( self ) -> List[ np.ndarray ]:
+        return [ self._ploty[idx].squeeze() for idx in self._selected_pids ]
+
+    @property
+    def yrange(self):
+        ydata = self._ploty[ self._selected_pids ]
+        return ( ydata.min(), ydata.max() )
 
     @property
     def title(self ) -> str:
-        return ' '.join( [ str(mdarray[self._item_index]) for mdarray in self._mdata ] )
+        if len(self._selected_pids) == 1:
+            return ' '.join([str(mdarray[self._selected_pids[0]]) for mdarray in self._mdata])
+        else:
+            return "multiplot"
 
 class GraphManager(tlc.SingletonConfigurable,AstroSingleton):
 
@@ -70,9 +86,9 @@ class GraphManager(tlc.SingletonConfigurable,AstroSingleton):
     def current_graph(self) -> JbkGraph:
         return self._graphs[ self._wGui.selected_index ]
 
-    def plot_graph( self, item_index: int ):
+    def plot_graph( self, pids: List[int] ):
         current_graph: JbkGraph = self.current_graph()
-        current_graph.select_item( item_index )
+        current_graph.select_items( pids )
         current_graph.plot()
 
     def _createGui( self, **kwargs ) -> widgets.Tab():
@@ -86,4 +102,4 @@ class GraphManager(tlc.SingletonConfigurable,AstroSingleton):
         selection = selection_event['pids']
         if len( selection ) > 0:
             print(f" GRAPH.on_selection: nitems = {len(selection)}, pid={selection[0]}")
-            self.plot_graph( selection[0] )
+            self.plot_graph( selection )

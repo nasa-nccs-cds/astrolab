@@ -99,7 +99,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
                 if len( pids ) > 0:
                     PointCloudManager.instance().clear_points( cid )
                     table.remove_rows( pids )
-                    table.df.drop( axis=0, inplace=True )
+                    table.df.drop( index=pids, inplace=True )
             PointCloudManager.instance().update_plot()
 
     def _handle_table_event(self, event, widget):
