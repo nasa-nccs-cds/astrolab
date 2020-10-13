@@ -15,10 +15,15 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
         self._gui = None
         self._embedding: np.ndarray = None
         self._marker_points: List[np.ndarray] = [ self.empty_pointset for ic in range( LabelsManager.instance().nLabels ) ]
+        self._marker_pids: List[np.ndarray] = [ self.empty_pids for ic in range( LabelsManager.instance().nLabels ) ]
 
     @property
     def empty_pointset(self) -> np.ndarray:
         return np.empty(shape=[0, 3], dtype=np.float)
+
+    @property
+    def empty_pids(self) -> np.ndarray:
+        return np.empty(shape=[0], dtype=np.int)
 
     def init_data( self, **kwargs  ):
         project_dataset = DataManager.instance().loadCurrentProject()
@@ -52,19 +57,29 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
         from astrolab.model.labels import LabelsManager
         ctrl: ControlPanel = ControlPanel.instance()
         icid: int = cid if cid > 0 else ctrl.current_cid
-        marked_points: np.ndarray = self._embedding[ pids, : ]
-        print( f"  ***** POINTS- mark_points[{icid}], #pids = {len(pids)}, #points = {marked_points.shape[0]}")
+        self._marker_pids[icid] = np.unique( np.append( self._marker_pids[icid], pids ) )
+        marked_points: np.ndarray = self._embedding[ self._marker_pids[icid], : ]
+#        print( f"  ***** POINTS- mark_points[{icid}], #pids = {len(pids)}, #points = {marked_points.shape[0]}")
         self._marker_points[ 0 ] = self.empty_pointset
-        self._marker_points[ icid ] = np.concatenate(  [ self._marker_points[ icid ], marked_points ] )
-        LabelsManager.instance().addMarker( Marker( pids, icid ) )
+        self._marker_points[ icid ] = marked_points # np.concatenate(  [ self._marker_points[ icid ], marked_points ] )
+        LabelsManager.instance().addAction( "mark", "points", pids, icid )
         if update: self.update_plot()
         return ctrl.current_cid
 
     def clear_points(self, icid: int, **kwargs ):
         update = kwargs.get( 'update', False )
         pids = kwargs.get('pids', None )
-        if pids is None: self._marker_points[icid] = self.empty_pointset
-        else: self._marker_points[icid]  = np.delete( self._marker_points[icid], np.where(self._marker_points[icid] in pids) )
+        print( f"POINTS.clear: cid={icid}, pids={pids}")
+        if pids is None:
+            self._marker_points[icid] = self.empty_pointset
+            self._marker_pids[icid] = self.empty_pids
+        else:
+            dpts = np.vectorize( lambda x: x in pids )
+            dmask = dpts( self._marker_pids[icid] )
+#            print( f"clear_points.Mask: {self._marker_pids[icid]} -> {dmask}" )
+            self._marker_pids[icid]  = np.delete( self._marker_pids[icid], dmask )
+            self._marker_points[ icid ] = self._embedding[ self._marker_pids[icid], :] if len( self._marker_pids[icid] ) > 0 else self.empty_pointset
+#            print(f"clear_points: reduced marker_pids = {self._marker_pids[icid]} -> points = {self._marker_points[ icid ]}")
         if update: self.update_plot()
 
     def configure(self, **kwargs ):

@@ -9,7 +9,7 @@ import ipywidgets as ipw
 from .widgets import ToggleButton
 from astrolab.data.manager import DataManager
 import ipywidgets as widgets
-from ipyevents import Event
+from .points import PointCloudManager
 from traitlets import traitlets
 from astrolab.model.labels import LabelsManager
 import traitlets.config as tlc
@@ -46,7 +46,6 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         self._selection_listeners.append( listener )
 
     def mark_selection(self):
-        from .points import PointCloudManager
         selection_table: pd.DataFrame = self._tables[0].df.loc[self._current_selection]
         cid: int = PointCloudManager.instance().mark_points( selection_table.index.to_numpy(), update=True )
         self._class_map[self._current_selection] = cid
@@ -57,7 +56,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
                 table.edit_cell( index_list, "Class", cid )
             else:
                 if table_index == cid:    table.df = pd.concat( [ table.df, selection_table ] ).drop_duplicates()
-                else:                     table.df = table.df.drop( index=self._current_selection, errors="ignore" )
+                else:                     self.drop_rows( table_index, self._current_selection )
 
     @property
     def selected_class(self):
@@ -69,7 +68,6 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
 
     def spread_selection(self):
         from astrolab.graph.flow import ActivationFlowManager, ActivationFlow
-        from .points import PointCloudManager
         project_dataset: xa.Dataset = DataManager.instance().loadCurrentProject()
         catalog_pids = np.arange( 0, project_dataset.reduction.shape[0] )
         flow: ActivationFlow = ActivationFlowManager.instance().getActivationFlow( project_dataset.reduction )
@@ -86,24 +84,31 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
                         PointCloudManager.instance().mark_points( selection_table.index.to_numpy(), cid )
             PointCloudManager.instance().update_plot()
 
-    def undo_selection(self):
-        from astrolab.model.base import Marker
-        marker: Marker = LabelsManager.instance().popMarker()
-        self._selected_class = marker.cid
-        self._current_selection = marker.pids
-        self.clear_selection( True )
+    def undo_marking(self):
+        from astrolab.model.labels import Action
+        action: Action = LabelsManager.instance().popAction()
+        if action is not None:
+            self.clear_pids( action.cid, action.pids )
 
-    def clear_selection(self, current_only = False ):
-        from .points import PointCloudManager
+    def clear_pids(self, cid: int, pids: List[int] ):
+        self._tables[0].change_selection([])
+        self.drop_rows( cid, pids )
+        PointCloudManager.instance().clear_points( cid, pids=pids, update=True )
+
+    def drop_rows(self, cid: int, pids: List[int]) :
+        try: self._tables[cid].remove_rows(pids)
+        except: pass
+        self._tables[cid].df.drop(index=pids, inplace=True, errors="ignore" )
+
+    def clear_current_class(self):
         all_classes = (self.selected_class == 0)
         self._tables[0].change_selection([])
         for cid, table in enumerate( self._tables[1:], 1 ):
             if all_classes or (self.selected_class == cid):
-                pids = self._current_selection if current_only else table.df.index.tolist()
+                pids = table.df.index.tolist()
                 if len( pids ) > 0:
-                    PointCloudManager.instance().clear_points( cid, pids=(pids if current_only else None) )
-                    table.remove_rows( pids )
-                    table.df.drop( index=pids, inplace=True )
+                    PointCloudManager.instance().clear_points( cid )
+                    self.drop_rows( cid, pids )
             PointCloudManager.instance().update_plot()
 
     def _handle_table_event(self, event, widget):

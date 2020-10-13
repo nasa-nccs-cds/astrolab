@@ -75,6 +75,7 @@ class LabelsManager(tlc.SingletonConfigurable,AstroSingleton):
     def addAction(self, type: str, source: str, pids: List[int], cid=None, **kwargs ):
         if cid == None: cid = self.selectedClass
         new_action = Action(type, source, pids, cid, **kwargs)
+        if type == "mark": self.addMarker( Marker(pids,cid) )
         print(f"ADD ACTION: {new_action}")
         if (len(self._actions) == 0) or (new_action != self._actions[-1]):
             self._actions.append( new_action )
@@ -141,15 +142,13 @@ class LabelsManager(tlc.SingletonConfigurable,AstroSingleton):
 
     def spread(self, optype: str,  n_iters = None ) -> Optional[xa.Dataset]:
         if self._flow is None:
-            event = dict( event="message", type="warning", title='Workflow Message', caption="Awaiting task completion", msg="The data has not yet been loaded" )
-            self.submitEvent( event )
             return None
         resume = ( optype == "neighbors" ) and ( self._optype == "neighbors" )
         if not resume: self._flow.clear()
         self._optype = optype
         labels_data = self.labels_data()
         niters = self.n_spread_iters if n_iters is None else n_iters
-        return self._flow.spread( labels_data, niters )
+        return self._flow.spread( labels_data.values, niters )
 
     def clearTransient(self):
         if len(self._markers) > 0 and self._markers[-1].cid == 0:
