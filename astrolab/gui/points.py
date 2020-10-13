@@ -2,7 +2,9 @@ import time, numpy as np
 from astrolab.data.manager import DataManager
 from astrolab.reduction.embedding import ReductionManager
 from typing import List, Union, Tuple, Optional, Dict, Callable
+from matplotlib import cm
 from itkwidgets import view
+from itkwidgets.widget_viewer import Viewer
 import xarray as xa
 import traitlets.config as tlc
 from astrolab.model.base import AstroSingleton, Marker
@@ -12,7 +14,7 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
 
     def __init__(self, **kwargs):
         super(PointCloudManager, self).__init__(**kwargs)
-        self._gui = None
+        self._gui: Viewer = None
         self._embedding: np.ndarray = None
         self._marker_points: List[np.ndarray] = [ self.empty_pointset for ic in range( LabelsManager.instance().nLabels ) ]
         self._marker_pids: List[np.ndarray] = [ self.empty_pids for ic in range( LabelsManager.instance().nLabels ) ]
@@ -20,6 +22,11 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
     @property
     def empty_pointset(self) -> np.ndarray:
         return np.empty(shape=[0, 3], dtype=np.float)
+
+    def get_colormap( self, ncolors: int, cmname: str = "jet" ):
+        x = np.linspace( 0.0, 1.0, ncolors )
+        cmap = cm.get_cmap(cmname)(x)
+        return [ c[:3] for c in cmap ]
 
     @property
     def empty_pids(self) -> np.ndarray:
@@ -66,6 +73,18 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
         if update: self.update_plot()
         return ctrl.current_cid
 
+    def color_by_value( self, D: np.ndarray, nColors=10 ):
+        dmin, dmax = D.min(), D.max()
+        dstep = (dmax-dmin)/nColors
+        binned_points = []
+        for iC in range(nColors):
+            bstart = dmin + iC * dstep
+            mask = ( D > bstart ) & ( D <= (bstart+dstep) )
+            binned_points.append( self._embedding[ mask ] )
+            print( f" binned_points[{iC}]: shape = {binned_points[iC].shape}")
+        self._gui.point_sets = binned_points
+        self._gui.point_set_colors= self.get_colormap( nColors )
+
     def clear_points(self, icid: int, **kwargs ):
         update = kwargs.get( 'update', False )
         pids = kwargs.get('pids', None )
@@ -81,18 +100,6 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
             self._marker_points[ icid ] = self._embedding[ self._marker_pids[icid], :] if len( self._marker_pids[icid] ) > 0 else self.empty_pointset
 #            print(f"clear_points: reduced marker_pids = {self._marker_pids[icid]} -> points = {self._marker_points[ icid ]}")
         if update: self.update_plot()
-
-    def configure(self, **kwargs ):
-        width = kwargs.get( 'width', None )
-        height = kwargs.get( 'height', None )
-        if width is not None:
-            self._gui.layout.width = width
-            self._gui.layout.max_width = width
-            self._gui.layout.min_width = width
-        if height is not None:
-            self._gui.layout.height = height
-            self._gui.layout.max_height = height
-            self._gui.layout.min_height = height
 
     @property
     def point_sets(self):

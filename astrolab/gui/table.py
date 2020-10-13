@@ -66,13 +66,13 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
     def selected_table(self):
         return self._tables[ self.selected_class ]
 
-    def spread_selection(self):
+    def spread_selection(self, niters=1):
         from astrolab.graph.flow import ActivationFlowManager, ActivationFlow
         project_dataset: xa.Dataset = DataManager.instance().loadCurrentProject()
         catalog_pids = np.arange( 0, project_dataset.reduction.shape[0] )
         flow: ActivationFlow = ActivationFlowManager.instance().getActivationFlow( project_dataset.reduction )
 
-        if flow.spread(self._class_map, 1) is not None:
+        if flow.spread(self._class_map, niters) is not None:
             self._class_map = flow.C
             all_classes = (self.selected_class == 0)
             for cid, table in enumerate( self._tables[1:], 1 ):
@@ -83,6 +83,15 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
                         table.df = pd.concat([table.df, selection_table]).drop_duplicates()
                         PointCloudManager.instance().mark_points( selection_table.index.to_numpy(), cid )
             PointCloudManager.instance().update_plot()
+
+    def display_distance(self, niters=100):
+        from astrolab.graph.flow import ActivationFlowManager, ActivationFlow
+        project_dataset: xa.Dataset = DataManager.instance().loadCurrentProject()
+        all_classes = (self.selected_class == 0)
+        seed_points = self._class_map if all_classes else np.where( self._class_map == self.selected_class, self._class_map, np.array([0]) )
+        flow: ActivationFlow = ActivationFlowManager.instance().getActivationFlow( project_dataset.reduction )
+        if flow.spread( seed_points, niters ) is not None:
+            PointCloudManager.instance().color_by_value( flow.P )
 
     def undo_marking(self):
         from astrolab.model.labels import Action
