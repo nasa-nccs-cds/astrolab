@@ -41,6 +41,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         self._dataFrame: pd.DataFrame = pd.DataFrame( catalog, dtype='U', index=pd.Int64Index( range(nrows), name="Index" ) )
         self._cols = list(catalog.keys()) + [ "Class" ]
         self._class_map = np.zeros( nrows, np.int32 )
+        self._flow_class_map = np.zeros(nrows, np.int32)
 
     def add_selection_listerner( self, listener: Callable[[Dict],None] ):
         self._selection_listeners.append( listener )
@@ -52,7 +53,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         for table_index, table in enumerate( self._tables ):
             if table_index == 0:
                 index_list: List[int] = selection_table.index.tolist()
-                print( f" -----> Setting cid[{cid}] for indices= {index_list[:10]}... ")
+                print( f" -----> Setting cid[{cid}] for indices[:10]= {index_list[:10]}, current_selection = {self._current_selection}, class map nonzero = {np.count_nonzero(self._class_map)}")
                 table.edit_cell( index_list, "Class", cid )
             else:
                 if table_index == cid:    table.df = pd.concat( [ table.df, selection_table ] ).drop_duplicates()
@@ -71,13 +72,14 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         project_dataset: xa.Dataset = DataManager.instance().loadCurrentProject()
         catalog_pids = np.arange( 0, project_dataset.reduction.shape[0] )
         flow: ActivationFlow = ActivationFlowManager.instance().getActivationFlow( project_dataset.reduction )
+        self._flow_class_map = np.copy( self._class_map )
 
-        if flow.spread(self._class_map, niters) is not None:
-            self._class_map = flow.C
+        if flow.spread(self._flow_class_map, niters) is not None:
+            self._flow_class_map = flow.C
             all_classes = (self.selected_class == 0)
             for cid, table in enumerate( self._tables[1:], 1 ):
                 if all_classes or (self.selected_class == cid):
-                    new_indices: np.ndarray = catalog_pids[ self._class_map == cid ]
+                    new_indices: np.ndarray = catalog_pids[ self._flow_class_map == cid ]
                     if new_indices.size > 0:
                         selection_table: pd.DataFrame = self._tables[0].df.loc[ new_indices ]
                         table.df = pd.concat([table.df, selection_table]).drop_duplicates()
@@ -89,7 +91,8 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         project_dataset: xa.Dataset = DataManager.instance().loadCurrentProject()
         all_classes = (self.selected_class == 0)
         seed_points = self._class_map if all_classes else np.where( self._class_map == self.selected_class, self._class_map, np.array([0]) )
-        flow: ActivationFlow = ActivationFlowManager.instance().getActivationFlow( project_dataset.reduction )
+        flow: ActivationFlow = ActivationFlowManager.instance().create_flow( project_dataset.reduction )
+        print( f"  display_distance: seed_points = {seed_points.nonzero()}, all_classes = {all_classes}, selected_class = {self.selected_class} ")
         if flow.spread( seed_points, niters ) is not None:
             PointCloudManager.instance().color_by_value( flow.P )
 
@@ -102,12 +105,14 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
     def clear_pids(self, cid: int, pids: List[int] ):
         self._tables[0].change_selection([])
         self.drop_rows( cid, pids )
+        self._class_map[pids] = 0
         PointCloudManager.instance().clear_points( cid, pids=pids, update=True )
 
     def drop_rows(self, cid: int, pids: List[int]) :
         try: self._tables[cid].remove_rows(pids)
         except: pass
         self._tables[cid].df.drop(index=pids, inplace=True, errors="ignore" )
+        print( f"TABLE[{cid}]: Dropping rows in class map: {pids}")
 
     def clear_current_class(self):
         all_classes = (self.selected_class == 0)
@@ -118,6 +123,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
                 if len( pids ) > 0:
                     PointCloudManager.instance().clear_points( cid )
                     self.drop_rows( cid, pids )
+                    self._class_map[pids] = 0
             PointCloudManager.instance().update_plot()
 
     def _handle_table_event(self, event, widget):

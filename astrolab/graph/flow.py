@@ -136,7 +136,7 @@ class ActivationFlow(object):
     def spread( self, sample_data: np.ndarray, nIter: int = 1, **kwargs ) -> Optional[bool]:
         sample_mask = sample_data == 0
         if self.C is None or self.reset:
-            self.C = sample_data
+            self.C = np.array( sample_data, dtype=np.int32 )
         else:
             self.C = np.where( sample_mask, self.C, sample_data )
         label_count = np.count_nonzero(self.C)
