@@ -96,11 +96,14 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         if flow.spread( seed_points, niters ) is not None:
             PointCloudManager.instance().color_by_value( flow.P )
 
-    def undo_marking(self):
+    def undo_action(self):
         from astrolab.model.labels import Action
         action: Action = LabelsManager.instance().popAction()
         if action is not None:
-            self.clear_pids( action.cid, action.pids )
+            if action.type == "mark":
+                self.clear_pids( action.cid, action.pids )
+            elif action.type == "color":
+                PointCloudManager.instance().clear_bins()
 
     def clear_pids(self, cid: int, pids: List[int] ):
         self._tables[0].change_selection([])

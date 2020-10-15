@@ -72,7 +72,7 @@ class LabelsManager(tlc.SingletonConfigurable,AstroSingleton):
     def flow(self) -> Optional[ActivationFlow]:
         return self._flow
 
-    def addAction(self, type: str, source: str, pids: List[int], cid=None, **kwargs ):
+    def addAction(self, type: str, source: str, pids: List[int] = None, cid=None, **kwargs ):
         if cid == None: cid = self.selectedClass
         new_action = Action(type, source, pids, cid, **kwargs)
         if type == "mark": self.addMarker( Marker(pids,cid) )
@@ -87,18 +87,6 @@ class LabelsManager(tlc.SingletonConfigurable,AstroSingleton):
             return action
         except:
             return None
-
-    def undo(self):
-        action = self.popAction()
-        if action is not None:
-            self.processAction( action )
-
-    def processAction(self, action: Action ):
-        remaining_markers = []
-        for marker in self._markers:
-            marker.deletePids( action.pids )
-            if not marker.isEmpty(): remaining_markers.append( marker )
-        self._markers = remaining_markers
 
     @property
     def classification(self) -> np.ndarray:
@@ -214,89 +202,6 @@ class LabelsManager(tlc.SingletonConfigurable,AstroSingleton):
             labels_dict[ label ] = set_alpha( self._colors[index], alpha )
         return labels_dict
 
-    # def gui(self, **kwargs ):
-    #     from hyperclass.learn.manager import learningManager
-    #     self.show_unlabeled = kwargs.get( 'show_unlabeled', True )
-    #     with_learning = kwargs.get( 'learning', False )
-    #     self.console = QWidget()
-    #     console_layout = QVBoxLayout()
-    #     self.console.setLayout( console_layout )
-    #     radio_button_style = [ "border-style: outset", "border-width: 4px", "padding: 6px", "border-radius: 10px" ]
-    #
-    #     labels_frame = QFrame( self.console )
-    #     buttons_frame_layout = QVBoxLayout()
-    #     labels_frame.setLayout( buttons_frame_layout )
-    #     labels_frame.setFrameStyle( QFrame.StyledPanel | QFrame.Raised )
-    #     labels_frame.setLineWidth( 3 )
-    #     console_layout.addWidget( labels_frame )
-    #     title = QLabel( "Classes" )
-    #     title.setStyleSheet("font-weight: bold; color: black; font: 16pt" )
-    #     buttons_frame_layout.addWidget( title )
-    #
-    #     for index, label in enumerate(self._labels):
-    #         if (index > 0) or self.show_unlabeled:
-    #             radiobutton = QRadioButton( label, self.console )
-    #             radiobutton.index = index
-    #             raw_color = [str(int(c * 155.99)) for c in self._colors[index]]
-    #             qcolor = [ str(150+int(c*105.99)) for c in self._colors[index] ]
-    #             style_sheet = ";".join( radio_button_style + [ f"background-color:rgb({','.join(qcolor)})", f"border-color: rgb({','.join(raw_color)})" ] )
-    #             radiobutton.setStyleSheet( style_sheet )
-    #             radiobutton.toggled.connect(self.onClicked)
-    #             buttons_frame_layout.addWidget( radiobutton )
-    #             self.buttons.append( radiobutton )
-    #
-    #     buttons_frame = QFrame( self.console )
-    #     buttons_frame_layout = QVBoxLayout()
-    #     buttons_frame.setLayout( buttons_frame_layout )
-    #     buttons_frame.setFrameStyle( QFrame.StyledPanel | QFrame.Raised )
-    #     buttons_frame.setLineWidth( 3 )
-    #     console_layout.addWidget( buttons_frame )
-    #     title = QLabel( "Actions" )
-    #     title.setStyleSheet("font-weight: bold; color: black; font: 16pt" )
-    #     buttons_frame_layout.addWidget( title )
-    #     actions = [ 'Mark', 'Spread', 'Distance', 'Embed' ]
-    #     if with_learning:
-    #         actions = actions + [ 'Learn', 'Apply' ]
-    #         learningManager.activate()
-    #     actions = actions + [ 'Undo', 'Clear' ]
-    #
-    #     for action in actions:
-    #         pybutton = QPushButton( action, self.console )
-    #         pybutton.clicked.connect( partial( self.execute,action)  )
-    #         buttons_frame_layout.addWidget(pybutton)
-    #
-    #     console_layout.addStretch( 1 )
-    #     self.buttons[0].setChecked( True )
-    #     self.activate_event_listening()
-    #     return self.console
-
-    def execute(self, action: str ):
-        print( f"Executing action {action}" )
-        etype = action.lower()
-        if etype == "undo":
-            self.undo()
-        elif etype == "clear":
-            event = dict( event='gui', type='clear', label='reinit dataset', markers="keep"  )
-            self.submitEvent( event)
-        elif etype == "spread":
-            new_classes: Optional[xa.DataArray] = self.spread( etype )
-            if new_classes is not None:
-                event = dict( event="gui", type="spread", labels=new_classes )
-                self.submitEvent(event)
-        elif etype == "distance":
-            new_classes: Optional[xa.DataArray] = self.spread( etype, 100 )
-            if new_classes is not None:
-                event = dict(event="gui", type="distance", labels=new_classes)
-                self.submitEvent(event)
-        elif etype == "embed":
-            event = dict( event="gui", type="embed", alpha = 0.25 )
-            self.submitEvent( event )
-        elif etype == "mark":
-            event = dict( event='gui', type=etype )
-            self.submitEvent( event )
-        elif etype in [ "apply", "learn" ]:
-            event = dict( event='classify', type= etype + ".prep" )
-            self.submitEvent( event )
 
     def onClicked(self):
         radioButton = self.sender()

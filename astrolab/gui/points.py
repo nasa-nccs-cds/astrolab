@@ -75,9 +75,14 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
         if update: self.update_plot()
         return ctrl.current_cid
 
+    def clear_bins(self):
+        for iC in range( 0, self._n_point_bins ):
+            self._binned_points[iC] = self.empty_pointset
+        self.update_plot()
+
     def color_by_value( self, D: np.ndarray, base = 12.0 ):
         DM = ma.masked_invalid(D)
-        v1 = DM.max()/5.0; v0 = 0.008*v1
+        v1 = DM.max()/5.0; v0 = 0.016*v1
         N_log_bins = self._n_point_bins-1
         print(f" binned_points: v1 = {v1}, v0 = {v0}, base = {base}, D.shape = {DM.shape}")
         dmin, dmax = math.log(v0,base), math.log(v1,base)
@@ -91,6 +96,7 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
             print( f" binned_points[{iC+1}]: size = {self._binned_points[iC].shape[0]}, bin = [{lspace[iC]},{lspace[iC+1]}]")
         self._binned_points[-1] = self._embedding[ DM >  lspace[-1] ]
         print(f" binned_points[{self._n_point_bins-1}]: size = {self._binned_points[-1].shape[0]}, bin = (> {lspace[-1]})")
+        LabelsManager.instance().addAction( "color", "points" )
         self.update_plot()
 
     def clear_points(self, icid: int, **kwargs ):
