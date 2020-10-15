@@ -78,7 +78,6 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
     def clear_bins(self):
         for iC in range( 0, self._n_point_bins ):
             self._binned_points[iC] = self.empty_pointset
-        self.update_plot()
 
     def color_by_value( self, D: np.ndarray, base = 12.0 ):
         DM = ma.masked_invalid(D)
@@ -100,7 +99,6 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
         self.update_plot()
 
     def clear_points(self, icid: int, **kwargs ):
-        update = kwargs.get( 'update', False )
         pids = kwargs.get('pids', None )
         print( f"POINTS.clear: cid={icid}, pids={pids}")
         if pids is None:
@@ -113,7 +111,6 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
             self._marker_pids[icid]  = np.delete( self._marker_pids[icid], dmask )
             self._marker_points[ icid ] = self._embedding[ self._marker_pids[icid], :] if len( self._marker_pids[icid] ) > 0 else self.empty_pointset
 #            print(f"clear_points: reduced marker_pids = {self._marker_pids[icid]} -> points = {self._marker_points[ icid ]}")
-        if update: self.update_plot()
 
     @property
     def point_sets(self):

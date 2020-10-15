@@ -48,6 +48,7 @@ class JbkGraph:
         self.fig.title.text = self.title
         self._source.data.update( ys = y, xs=self.x, cmap = np.random.randint(0,255,nlines) )
         self.fig.y_range.update( start=yr[0], end=yr[1] )
+        print( f"  **** GRAPH:plot-> title={self.title}, nlines={nlines}, y0[:10] = {y[0][:10]}, x[:10] = {self.x[:10]}")
 
     @property
     def x(self) -> List[ np.ndarray ]:
@@ -65,9 +66,10 @@ class JbkGraph:
     @property
     def title(self ) -> str:
         if len(self._selected_pids) == 1:
-            return ' '.join([str(mdarray[self._selected_pids[0]]) for mdarray in self._mdata])
+            t = ' '.join([str(mdarray[self._selected_pids[0]]) for mdarray in self._mdata])
         else:
-            return "multiplot"
+            t = "multiplot"
+        return t
 
 class GraphManager(tlc.SingletonConfigurable,AstroSingleton):
 

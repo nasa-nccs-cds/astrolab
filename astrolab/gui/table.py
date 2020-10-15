@@ -48,7 +48,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
 
     def mark_selection(self):
         selection_table: pd.DataFrame = self._tables[0].df.loc[self._current_selection]
-        cid: int = PointCloudManager.instance().mark_points( selection_table.index.to_numpy(), update=True )
+        cid: int = self.pcm.mark_points( selection_table.index.to_numpy(), update=True )
         self._class_map[self._current_selection] = cid
         for table_index, table in enumerate( self._tables ):
             if table_index == 0:
@@ -67,6 +67,10 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
     def selected_table(self):
         return self._tables[ self.selected_class ]
 
+    @property
+    def pcm(self) -> PointCloudManager:
+        return PointCloudManager.instance()
+
     def spread_selection(self, niters=1):
         from astrolab.graph.flow import ActivationFlowManager, ActivationFlow
         project_dataset: xa.Dataset = DataManager.instance().loadCurrentProject()
@@ -83,8 +87,8 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
                     if new_indices.size > 0:
                         selection_table: pd.DataFrame = self._tables[0].df.loc[ new_indices ]
                         table.df = pd.concat([table.df, selection_table]).drop_duplicates()
-                        PointCloudManager.instance().mark_points( selection_table.index.to_numpy(), cid )
-            PointCloudManager.instance().update_plot()
+                        self.pcm.mark_points( selection_table.index.to_numpy(), cid )
+            self.pcm.update_plot()
 
     def display_distance(self, niters=100):
         from astrolab.graph.flow import ActivationFlowManager, ActivationFlow
@@ -94,7 +98,7 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
         flow: ActivationFlow = ActivationFlowManager.instance().create_flow( project_dataset.reduction )
         print( f"  display_distance: seed_points = {seed_points.nonzero()}, all_classes = {all_classes}, selected_class = {self.selected_class} ")
         if flow.spread( seed_points, niters ) is not None:
-            PointCloudManager.instance().color_by_value( flow.P )
+            self.pcm.color_by_value( flow.P )
 
     def undo_action(self):
         from astrolab.model.labels import Action
@@ -103,13 +107,15 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
             if action.type == "mark":
                 self.clear_pids( action.cid, action.pids )
             elif action.type == "color":
-                PointCloudManager.instance().clear_bins()
+                self.pcm.clear_bins()
+        self.pcm.update_plot( )
 
     def clear_pids(self, cid: int, pids: List[int] ):
         self._tables[0].change_selection([])
         self.drop_rows( cid, pids )
         self._class_map[pids] = 0
-        PointCloudManager.instance().clear_points( cid, pids=pids, update=True )
+        self.pcm.clear_points( cid, pids=pids )
+        self.pcm.update_plot()
 
     def drop_rows(self, cid: int, pids: List[int]) :
         try: self._tables[cid].remove_rows(pids)
@@ -120,14 +126,15 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
     def clear_current_class(self):
         all_classes = (self.selected_class == 0)
         self._tables[0].change_selection([])
+        if all_classes: self.pcm.clear_bins()
         for cid, table in enumerate( self._tables[1:], 1 ):
             if all_classes or (self.selected_class == cid):
                 pids = table.df.index.tolist()
                 if len( pids ) > 0:
-                    PointCloudManager.instance().clear_points( cid )
+                    self.pcm.clear_points( cid )
                     self.drop_rows( cid, pids )
                     self._class_map[pids] = 0
-            PointCloudManager.instance().update_plot()
+        self.pcm.update_plot()
 
     def _handle_table_event(self, event, widget):
         ename = event['name']
