@@ -15,7 +15,7 @@ class ControlPanel(tlc.SingletonConfigurable,AstroSingleton):
         super(ControlPanel, self).__init__(**kwargs)
         self._wGui: ipw.Box = None
         self._buttons = {}
-        self.wSelectedClass: ipw.RadioButtons = None
+        self.wSelectedClass: ipw.ToggleButtons = None
 
     @property
     def current_class(self) -> str:
@@ -48,7 +48,7 @@ class ControlPanel(tlc.SingletonConfigurable,AstroSingleton):
             button.on_click( partial( self.on_button_click, task ) )
             self._buttons[ task ] = button
         classes = LabelsManager.instance().labels
-        self.wSelectedClass = ipw.RadioButtons( options=classes, value=classes[0], description='Class:', tooltip="Set current class" )
+        self.wSelectedClass = ipw.ToggleButtons( options=classes, description='Class:', disabled=False, tooltip="Set current class" )
         self.wSelectedClass.layout = ipw.Layout( width = "auto", height = "auto" )
         buttonBox =  ipw.HBox( list(self._buttons.values()) )
         buttonBox.layout = ipw.Layout( width = "500px" )
