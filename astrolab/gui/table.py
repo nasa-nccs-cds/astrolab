@@ -271,6 +271,5 @@ class TableManager(tlc.SingletonConfigurable,AstroSingleton):
             self.init( **kwargs )
             self._wGui = self._createGui()
             self._wGui.layout = ipw.Layout(width='auto', flex='1 0 500px')
-            print( f" STYLE: '{self._wGui.box_style}'")
         return self._wGui
 

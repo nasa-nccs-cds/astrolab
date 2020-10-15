@@ -1,10 +1,6 @@
-import logging
 from typing import List, Union, Tuple, Optional, Dict, Callable
 from IPython.core.debugger import set_trace
 from functools import partial
-import xarray as xa
-import numpy as np
-from astrolab.data.manager import DataManager
 import os, ipywidgets as ipw
 import traitlets.config as tlc
 import traitlets as tl
@@ -38,12 +34,31 @@ class Astrolab( tlc.SingletonConfigurable, AstroSingleton ):
             print( f"Writing config file: {self.config_file}")
             cfile_handle.write( conf_txt )
 
+    def menubar(self, spec: Dict[str,Dict] ) -> ipw.Tab:
+        dialogs = []
+        wTab = ipw.Tab()
+        for iT, (mname, mspec) in enumerate(spec.items()):
+            wTab.set_title( iT, mname )
+            items = [ ]
+            for dname, op in mspec.items():
+                button = ipw.Button( description=dname, disabled=False, button_style='' )
+                button.on_click( partial( self.process_menubar_action, mname, dname, op ) )
+                items.append( button )
+            dialogs.append( ipw.GridBox(items, layout=ipw.Layout(grid_template_columns="repeat(3, 100px)")) )
+        wTab.children = dialogs
+        return wTab
+
+    def process_menubar_action(self, mname, dname, op, b ):
+        print(f" process_menubar_action.on_value_change: {mname}.{dname} -> {op}")
+
     def gui( self, embed: bool = False ):
         from astrolab.gui.graph import GraphManager
         from astrolab.gui.points import PointCloudManager
         from astrolab.gui.table import TableManager
         from astrolab.gui.control import ControlPanel
         self.configure()
+        css_border = '1px solid blue'
+        mspec = dict( file = dict( open = "test", close = "test", clear = "test", exit = "test" ) )
         tableManager = TableManager.instance()
         graphManager = GraphManager.instance()
         pointCloudManager = PointCloudManager.instance()
@@ -55,9 +70,10 @@ class Astrolab( tlc.SingletonConfigurable, AstroSingleton ):
 
         tableManager.add_selection_listerner(graphManager.on_selection)
         tableManager.add_selection_listerner(pointCloudManager.on_selection)
+        mbar = self.menubar( mspec )
 
-        control = ipw.VBox([table, controller], layout=ipw.Layout(flex='0 0 500px'))
-        plot = ipw.VBox([points, graph], layout=ipw.Layout(flex='1 1 auto'))
+        control = ipw.VBox([mbar, table, controller], layout=ipw.Layout( flex='0 0 500px', border=css_border) )
+        plot = ipw.VBox([points, graph], layout=ipw.Layout( flex='1 1 auto', border=css_border) )
         gui = ipw.HBox([control, plot])
         self.save_config()
         if embed: ControlPanel.instance().embed()
