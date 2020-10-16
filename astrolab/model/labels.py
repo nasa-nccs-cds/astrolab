@@ -2,6 +2,7 @@ from collections import OrderedDict
 from typing import List, Union, Dict, Callable, Tuple, Optional, Any
 import collections.abc
 from functools import partial
+import ipywidgets as ipw
 from ..graph.flow import ActivationFlow
 import traitlets.config as tlc
 from astrolab.model.base import AstroSingleton, Marker
@@ -68,6 +69,22 @@ class LabelsManager(tlc.SingletonConfigurable,AstroSingleton):
         self._optype = None
         self.template = None
         self.n_spread_iters = 1
+        self.wSelectedClass: ipw.ToggleButtons = None
+
+    @property
+    def current_class(self) -> str:
+        return self.wSelectedClass.value
+
+    @property
+    def current_cid(self) -> str:
+        return self.wSelectedClass.index
+
+    def gui( self ):
+        if self.wSelectedClass is None:
+            self.wSelectedClass = ipw.Select( options=self.labels, description="Class: ", disabled=False, tooltip="Select current class" )
+            self.wSelectedClass.layout = ipw.Layout( width = "100%", flex='0 0 80px', border= '2px solid firebrick' )
+            print( f" SSSSSSSSSSSSSS ipw.Select style keys = {self.wSelectedClass.style.keys}" )
+        return self.wSelectedClass
 
     def flow(self) -> Optional[ActivationFlow]:
         return self._flow
@@ -77,8 +94,7 @@ class LabelsManager(tlc.SingletonConfigurable,AstroSingleton):
         new_action = Action(type, source, pids, cid, **kwargs)
         if type == "mark": self.addMarker( Marker(pids,cid) )
         print(f"ADD ACTION: {new_action}")
-        if (len(self._actions) == 0) or (new_action != self._actions[-1]):
-            self._actions.append( new_action )
+        self._actions.append( new_action )
 
     def popAction(self) -> Optional[Action]:
         try:

@@ -62,18 +62,18 @@ class PointCloudManager(tlc.SingletonConfigurable,AstroSingleton):
         self.update_plot()
 
     def mark_points(self, pids: np.ndarray, cid: int = -1, update=False):
-        from astrolab.gui.control import ControlPanel
+        from astrolab.gui.control import ActionsPanel
         from astrolab.model.labels import LabelsManager
-        ctrl: ControlPanel = ControlPanel.instance()
-        icid: int = cid if cid > 0 else ctrl.current_cid
+        lmgr = LabelsManager.instance()
+        icid: int = cid if cid > 0 else lmgr.current_cid
         self._marker_pids[icid] = np.unique( np.append( self._marker_pids[icid], pids ) )
         marked_points: np.ndarray = self._embedding[ self._marker_pids[icid], : ]
 #        print( f"  ***** POINTS- mark_points[{icid}], #pids = {len(pids)}, #points = {marked_points.shape[0]}")
         self._marker_points[ 0 ] = self.empty_pointset
         self._marker_points[ icid ] = marked_points # np.concatenate(  [ self._marker_points[ icid ], marked_points ] )
-        LabelsManager.instance().addAction( "mark", "points", pids, icid )
+        lmgr.addAction( "mark", "points", pids, icid )
         if update: self.update_plot()
-        return ctrl.current_cid
+        return lmgr.current_cid
 
     def clear_bins(self):
         for iC in range( 0, self._n_point_bins ):
