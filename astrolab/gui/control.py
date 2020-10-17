@@ -31,15 +31,18 @@ class ActionsPanel(tlc.SingletonConfigurable, AstroSingleton):
         elif task == "undo":   tmgr.undo_action()
         elif task == "distance": tmgr.display_distance()
 
-    def _createGui( self, **kwargs ) -> ipw.HBox:
+    def _createGui( self, **kwargs ) -> ipw.Box:
+        from astrolab.model.labels import LabelsManager
         for task in [ "embed", "mark", "spread", "distance", "undo", "clear" ]:
             button = ipw.Button( description=task )
             button.layout = ipw.Layout( width='auto', flex="1 0 auto" )
             button.on_click( partial( self.on_button_click, task ) )
             self._buttons[ task ] = button
         buttonBox =  ipw.HBox( list(self._buttons.values()) )
-        buttonBox.layout = ipw.Layout( width = "100%", flex='0 0 80px', border= '2px solid firebrick' )
-        return buttonBox
+        buttonBox.layout = ipw.Layout( width = "100%" )
+        classes: ipw.DOMWidget = LabelsManager.instance().gui()
+        gui = ipw.VBox([buttonBox, classes], layout = ipw.Layout( width="100%", flex='1 0 180px', border= '2px solid firebrick' )  )
+        return gui
 
     def embed(self):
         self.on_button_click("embed")

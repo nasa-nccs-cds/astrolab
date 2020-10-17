@@ -38,16 +38,14 @@ class Astrolab( tlc.SingletonConfigurable, AstroSingleton ):
     def getFilePanel(self) -> ipw.HBox:
         files = ipw.Select( options = [ "dset1", "dset2", "dset3" ], description='Datasets:',disabled=False )
         load = ipw.Button( description="Load")
-        filePanel = ipw.HBox( [files, load ], layout=ipw.Layout( width="100%", flex='0 0 100px' ), border= '2px solid firebrick' )
+        filePanel = ipw.HBox( [files, load ], layout=ipw.Layout( width="100%", flex='0 0 100px', align_content = "flex-end" ), border= '2px solid firebrick' )
         return filePanel
 
     def getControlPanel( self ) -> ipw.DOMWidget:
         from astrolab.gui.control import ActionsPanel
-        from astrolab.model.labels import LabelsManager
         file: ipw.HBox = self.getFilePanel()
         actions: ipw.HBox = ActionsPanel.instance().gui()
-        classes: ipw.ToggleButtons = LabelsManager.instance().gui()
-        gui = ipw.VBox([file, actions, classes], layout = ipw.Layout( width="100%" )  )
+        gui = ipw.VBox([file, actions], layout = ipw.Layout( width="100%" )  )
         return gui
 
     def process_menubar_action(self, mname, dname, op, b ):

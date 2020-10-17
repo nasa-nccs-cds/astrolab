@@ -79,11 +79,10 @@ class LabelsManager(tlc.SingletonConfigurable,AstroSingleton):
     def current_cid(self) -> str:
         return self.wSelectedClass.index
 
-    def gui( self ):
+    def gui( self ) -> ipw.DOMWidget:
         if self.wSelectedClass is None:
-            self.wSelectedClass = ipw.Select( options=self.labels, description="Class: ", disabled=False, tooltip="Select current class" )
-            self.wSelectedClass.layout = ipw.Layout( width = "100%", flex='0 0 80px', border= '2px solid firebrick' )
-            print( f" SSSSSSSSSSSSSS ipw.Select style keys = {self.wSelectedClass.style.keys}" )
+            self.wSelectedClass = ipw.RadioButtons( options=self.labels, description="Class: ", disabled=False, tooltip="Select current class" )
+            self.wSelectedClass.layout = ipw.Layout( width = "100%"  )
         return self.wSelectedClass
 
     def flow(self) -> Optional[ActivationFlow]:
